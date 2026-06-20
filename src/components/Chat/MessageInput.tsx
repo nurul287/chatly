@@ -3,9 +3,11 @@ import { IoSendSharp } from 'react-icons/io5'
 
 interface Props {
   onSend: (text: string) => void
+  onKeyPress?: () => void
+  onBlur?: () => void
 }
 
-export function MessageInput({ onSend }: Props) {
+export function MessageInput({ onSend, onKeyPress, onBlur }: Props) {
   const [text, setText] = useState('')
 
   const submit = () => {
@@ -18,6 +20,8 @@ export function MessageInput({ onSend }: Props) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
+    } else {
+      onKeyPress?.()
     }
   }
 
@@ -27,6 +31,7 @@ export function MessageInput({ onSend }: Props) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         placeholder="Type a message..."
         rows={1}
         className="flex-1 bg-[#2a2a3e] text-sm text-white placeholder-[#94a3b8] rounded-xl px-4 py-2.5 outline-none resize-none border border-[#3f3f5a] focus:border-indigo-500 transition-colors max-h-32 leading-relaxed"
