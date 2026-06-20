@@ -29,11 +29,12 @@ export function SearchUsers({ currentUid, existingConvos, onSelect, onClose }: P
     setTerm(value)
     if (value.trim().length < 2) { setResults([]); return }
 
+    const lower = value.toLowerCase()
     const q = query(
       collection(db, 'users'),
-      where('displayName', '>=', value),
-      where('displayName', '<=', value + ''),
-      orderBy('displayName'),
+      where('displayNameLower', '>=', lower),
+      where('displayNameLower', '<=', lower + ''),
+      orderBy('displayNameLower'),
       limit(10)
     )
     const snap = await getDocs(q)
@@ -67,7 +68,7 @@ export function SearchUsers({ currentUid, existingConvos, onSelect, onClose }: P
           autoFocus
           value={term}
           onChange={(e) => search(e.target.value)}
-          placeholder="Search by name..."
+          placeholder="Search by name (case-insensitive)..."
           className="bg-transparent text-sm text-white placeholder-[#94a3b8] outline-none flex-1"
         />
       </div>

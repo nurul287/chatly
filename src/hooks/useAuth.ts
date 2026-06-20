@@ -16,6 +16,7 @@ export function useAuth() {
           {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName,
+            displayNameLower: firebaseUser.displayName?.toLowerCase() ?? '',
             email: firebaseUser.email,
             photoURL: firebaseUser.photoURL,
             lastSeen: serverTimestamp(),
