@@ -18,7 +18,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Message } from '../types'
+import type { Message, Attachment, AudioClip } from '../types'
 
 const PAGE_SIZE = 50
 
@@ -92,6 +92,7 @@ export function useMessages(conversationId: string | null, currentUid: string | 
   const sendMessage = async (text: string, senderId: string) => {
     if (!conversationId) return
     const msg = {
+      kind: 'text',
       text: text.trim(),
       senderId,
       timestamp: serverTimestamp(),
@@ -103,5 +104,37 @@ export function useMessages(conversationId: string | null, currentUid: string | 
     })
   }
 
-  return { messages, sendMessage, hasMore, loadMore, loadingMore }
+  const sendAttachment = async (attachment: Attachment, senderId: string) => {
+    if (!conversationId) return
+    const preview = attachment.type === 'image' ? '📷 Photo' : '📄 PDF'
+    await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+      kind: 'attachment',
+      attachment,
+      senderId,
+      timestamp: serverTimestamp(),
+      readBy: [senderId],
+    })
+    await updateDoc(doc(db, 'conversations', conversationId), {
+      lastMessage: { text: preview, senderId, timestamp: serverTimestamp() },
+    })
+  }
+
+  const sendAudio = async (audio: AudioClip, senderId: string) => {
+    if (!conversationId) return
+    const mm = Math.floor(audio.duration / 60)
+    const ss = String(Math.floor(audio.duration % 60)).padStart(2, '0')
+    const preview = `🎤 Voice message (${mm}:${ss})`
+    await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
+      kind: 'audio',
+      audio,
+      senderId,
+      timestamp: serverTimestamp(),
+      readBy: [senderId],
+    })
+    await updateDoc(doc(db, 'conversations', conversationId), {
+      lastMessage: { text: preview, senderId, timestamp: serverTimestamp() },
+    })
+  }
+
+  return { messages, sendMessage, sendAttachment, sendAudio, hasMore, loadMore, loadingMore }
 }

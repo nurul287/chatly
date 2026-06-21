@@ -3,6 +3,7 @@ import { arrayRemove, doc, updateDoc } from 'firebase/firestore'
 import type { Conversation } from '../../types'
 import { useMessages } from '../../hooks/useMessages'
 import { useTyping, useTypingUsers } from '../../hooks/useTyping'
+import { useAttachmentUpload } from '../../hooks/useAttachmentUpload'
 import { db } from '../../lib/firebase'
 import { ChatHeader } from './ChatHeader'
 import { MessageBubble } from './MessageBubble'
@@ -43,11 +44,18 @@ function formatDate(ts: unknown) {
 }
 
 export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
-  const { messages, sendMessage, hasMore, loadMore, loadingMore } = useMessages(
+  const { messages, sendMessage, sendAttachment, hasMore, loadMore, loadingMore } = useMessages(
     conversation?.id ?? null,
     currentUid
   )
+  const { status: uploadStatus, progress: uploadProgress, error: uploadError, uploadAttachment, reset: resetUpload } =
+    useAttachmentUpload(conversation?.id ?? null)
   const { onKeyPress, stopTyping } = useTyping(conversation?.id ?? null, currentUid)
+
+  const handleAttach = async (file: File) => {
+    const attachment = await uploadAttachment(file)
+    if (attachment) await sendAttachment(attachment, currentUid)
+  }
   const typingNames = useTypingUsers(
     conversation?.id ?? null,
     currentUid,
@@ -168,6 +176,11 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
 
       <MessageInput
         onSend={(text) => { sendMessage(text, currentUid); stopTyping() }}
+        onAttach={handleAttach}
+        uploadStatus={uploadStatus}
+        uploadProgress={uploadProgress}
+        uploadError={uploadError}
+        onClearError={resetUpload}
         onKeyPress={onKeyPress}
         onBlur={stopTyping}
       />

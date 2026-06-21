@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import type { Message } from '../../types'
 import { IoCheckmarkDone, IoCheckmark } from 'react-icons/io5'
+import { AttachmentBubble } from './AttachmentBubble'
 
 interface Props {
   message: Message
@@ -26,7 +27,7 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender 
 
   return (
     <motion.div
-      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} px-4`}
+      className={`flex w-full min-w-0 ${isOwn ? 'justify-end' : 'justify-start'} px-4`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -35,16 +36,22 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender 
         {showSender && !isOwn && (
           <span className="text-[10px] text-[#94a3b8] mb-1 px-1">{senderName}</span>
         )}
-        <div
-          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere max-w-full ${
-            isOwn
-              ? 'bg-indigo-500 text-white rounded-br-sm'
-              : 'bg-[#2a2a3e] text-[#e2e8f0] rounded-bl-sm'
-          }`}
-          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-        >
-          {message.text}
-        </div>
+        {message.kind === 'attachment' && message.attachment ? (
+          <AttachmentBubble attachment={message.attachment} isOwn={isOwn} />
+        ) : message.kind === 'audio' && message.audio ? (
+          <audio controls src={message.audio.url} className="max-w-full" />
+        ) : (
+          <div
+            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap w-full ${
+              isOwn
+                ? 'bg-indigo-500 text-white rounded-br-sm'
+                : 'bg-[#2a2a3e] text-[#e2e8f0] rounded-bl-sm'
+            }`}
+            style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+          >
+            {message.text}
+          </div>
+        )}
         <div className="flex items-center gap-1 mt-0.5 px-1">
           <span className="text-[10px] text-[#94a3b8]">{formatTime(message.timestamp)}</span>
           {isOwn && (
