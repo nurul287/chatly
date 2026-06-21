@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   writeBatch,
   getDocs,
@@ -136,5 +137,10 @@ export function useMessages(conversationId: string | null, currentUid: string | 
     })
   }
 
-  return { messages, sendMessage, sendAttachment, sendAudio, hasMore, loadMore, loadingMore }
+  const deleteMessage = async (messageId: string) => {
+    if (!conversationId) return
+    await deleteDoc(doc(db, 'conversations', conversationId, 'messages', messageId))
+  }
+
+  return { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, hasMore, loadMore, loadingMore }
 }

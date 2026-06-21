@@ -1,10 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { arrayRemove, doc, updateDoc } from 'firebase/firestore'
 import type { Conversation } from '../../types'
 import { useMessages } from '../../hooks/useMessages'
 import { useTyping, useTypingUsers } from '../../hooks/useTyping'
 import { useAttachmentUpload } from '../../hooks/useAttachmentUpload'
-import { db } from '../../lib/firebase'
 import { ChatHeader } from './ChatHeader'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
@@ -44,23 +42,22 @@ function formatDate(ts: unknown) {
 }
 
 export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
-  const { messages, sendMessage, sendAttachment, sendAudio, hasMore, loadMore, loadingMore } = useMessages(
+  const { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, hasMore, loadMore, loadingMore } = useMessages(
     conversation?.id ?? null,
     currentUid
   )
   const {
-    status: uploadStatus,
-    progress: uploadProgress,
     error: uploadError,
-    uploadAttachment,
+    clearError,
+    audioError,
+    clearAudioError,
+    uploadAttachments,
     uploadAudio,
-    reset: resetUpload,
   } = useAttachmentUpload(conversation?.id ?? null)
   const { onKeyPress, stopTyping } = useTyping(conversation?.id ?? null, currentUid)
 
-  const handleAttach = async (file: File) => {
-    const attachment = await uploadAttachment(file)
-    if (attachment) await sendAttachment(attachment, currentUid)
+  const handleAttach = async (files: File[]) => {
+    await uploadAttachments(files, (attachment) => sendAttachment(attachment, currentUid))
   }
 
   const handleVoice = async (blob: Blob, duration: number) => {
@@ -84,14 +81,6 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
     prevLenRef.current = messages.length
   }, [messages])
 
-  const leaveConversation = async () => {
-    if (!conversation) return
-    if (!window.confirm('Leave this conversation?')) return
-    await updateDoc(doc(db, 'conversations', conversation.id), {
-      members: arrayRemove(currentUid),
-    })
-  }
-
   if (!conversation) {
     return (
       <div className="flex-1 flex-col items-center justify-center gap-4 bg-[#16162a] hidden md:flex">
@@ -109,7 +98,6 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
         conversation={conversation}
         currentUid={currentUid}
         onMenuOpen={onMenuOpen}
-        onLeave={leaveConversation}
       />
 
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-2 bg-[#16162a]">
@@ -157,6 +145,7 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
                 senderName={sender?.displayName}
                 senderPhoto={sender?.photoURL}
                 showSender={showSender}
+                onDelete={isOwn ? () => deleteMessage(msg.id) : undefined}
               />
             </div>
           )
@@ -189,10 +178,10 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
         onSend={(text) => { sendMessage(text, currentUid); stopTyping() }}
         onAttach={handleAttach}
         onVoice={handleVoice}
-        uploadStatus={uploadStatus}
-        uploadProgress={uploadProgress}
         uploadError={uploadError}
-        onClearError={resetUpload}
+        onClearError={clearError}
+        audioError={audioError}
+        onClearAudioError={clearAudioError}
         onKeyPress={onKeyPress}
         onBlur={stopTyping}
       />
