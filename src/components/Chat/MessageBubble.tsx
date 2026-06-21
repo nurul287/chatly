@@ -31,16 +31,17 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className={`max-w-[70%] flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+      <div className={`max-w-[85%] sm:max-w-[70%] min-w-0 flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
         {showSender && !isOwn && (
           <span className="text-[10px] text-[#94a3b8] mb-1 px-1">{senderName}</span>
         )}
         <div
-          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap overflow-wrap-anywhere max-w-full ${
             isOwn
               ? 'bg-indigo-500 text-white rounded-br-sm'
               : 'bg-[#2a2a3e] text-[#e2e8f0] rounded-bl-sm'
           }`}
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
         >
           {message.text}
         </div>

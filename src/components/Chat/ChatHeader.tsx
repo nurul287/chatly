@@ -1,14 +1,15 @@
 import type { Conversation } from '../../types'
 import { Avatar } from '../UI/Avatar'
-import { IoPeopleOutline, IoMenuOutline } from 'react-icons/io5'
+import { IoPeopleOutline, IoMenuOutline, IoExitOutline } from 'react-icons/io5'
 
 interface Props {
   conversation: Conversation
   currentUid: string
   onMenuOpen: () => void
+  onLeave: () => void
 }
 
-export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
+export function ChatHeader({ conversation, currentUid, onMenuOpen, onLeave }: Props) {
   const other =
     conversation.type === 'direct'
       ? Object.values(conversation.memberDetails ?? {}).find((u) => u.uid !== currentUid)
@@ -35,7 +36,7 @@ export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
         <Avatar src={other?.photoURL} name={name} size={36} online={online} />
       )}
 
-      <div>
+      <div className="flex-1">
         <p className="text-sm font-semibold text-white">{name}</p>
         {conversation.type === 'group' ? (
           <p className="text-xs text-[#94a3b8]">{memberCount} members</p>
@@ -43,6 +44,14 @@ export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
           <p className="text-xs text-[#94a3b8]">{online ? 'Online' : 'Offline'}</p>
         )}
       </div>
+
+      <button
+        onClick={onLeave}
+        title="Leave conversation"
+        className="p-2 rounded-lg hover:bg-[#2a2a3e] text-[#94a3b8] hover:text-red-400 transition-colors"
+      >
+        <IoExitOutline className="text-lg" />
+      </button>
     </div>
   )
 }
