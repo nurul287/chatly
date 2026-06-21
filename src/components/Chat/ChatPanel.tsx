@@ -44,17 +44,28 @@ function formatDate(ts: unknown) {
 }
 
 export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
-  const { messages, sendMessage, sendAttachment, hasMore, loadMore, loadingMore } = useMessages(
+  const { messages, sendMessage, sendAttachment, sendAudio, hasMore, loadMore, loadingMore } = useMessages(
     conversation?.id ?? null,
     currentUid
   )
-  const { status: uploadStatus, progress: uploadProgress, error: uploadError, uploadAttachment, reset: resetUpload } =
-    useAttachmentUpload(conversation?.id ?? null)
+  const {
+    status: uploadStatus,
+    progress: uploadProgress,
+    error: uploadError,
+    uploadAttachment,
+    uploadAudio,
+    reset: resetUpload,
+  } = useAttachmentUpload(conversation?.id ?? null)
   const { onKeyPress, stopTyping } = useTyping(conversation?.id ?? null, currentUid)
 
   const handleAttach = async (file: File) => {
     const attachment = await uploadAttachment(file)
     if (attachment) await sendAttachment(attachment, currentUid)
+  }
+
+  const handleVoice = async (blob: Blob, duration: number) => {
+    const clip = await uploadAudio(blob, duration)
+    if (clip) await sendAudio(clip, currentUid)
   }
   const typingNames = useTypingUsers(
     conversation?.id ?? null,
@@ -177,6 +188,7 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
       <MessageInput
         onSend={(text) => { sendMessage(text, currentUid); stopTyping() }}
         onAttach={handleAttach}
+        onVoice={handleVoice}
         uploadStatus={uploadStatus}
         uploadProgress={uploadProgress}
         uploadError={uploadError}
