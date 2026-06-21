@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
+import { useState, useRef } from 'react'
 import type { Message } from '../../types'
-import { IoCheckmarkDone, IoCheckmark } from 'react-icons/io5'
+import { IoCheckmarkDone, IoCheckmark, IoTrashOutline } from 'react-icons/io5'
 import { AttachmentBubble } from './AttachmentBubble'
+import { AudioPlayer } from './AudioPlayer'
 
 interface Props {
   message: Message
@@ -10,6 +12,7 @@ interface Props {
   senderName?: string
   senderPhoto?: string | null
   showSender: boolean
+  onDelete?: () => void
 }
 
 function formatTime(ts: unknown) {
@@ -21,9 +24,26 @@ function formatTime(ts: unknown) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-export function MessageBubble({ message, isOwn, members, senderName, showSender }: Props) {
+export function MessageBubble({ message, isOwn, members, senderName, showSender, onDelete }: Props) {
   const allRead = members.filter((m) => m !== message.senderId).every((m) => message.readBy.includes(m))
   const someRead = message.readBy.some((r) => r !== message.senderId)
+  const [hovered, setHovered] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleTouchStart = () => {
+    if (!onDelete) return
+    longPressTimer.current = setTimeout(() => setMenuOpen(true), 500)
+  }
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+  }
+
+  const handleDelete = () => {
+    setMenuOpen(false)
+    setHovered(false)
+    if (window.confirm('Delete this message?')) onDelete?.()
+  }
 
   return (
     <motion.div
@@ -31,27 +51,43 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setMenuOpen(false) }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
     >
       <div className={`max-w-[85%] sm:max-w-[70%] min-w-0 flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
         {showSender && !isOwn && (
           <span className="text-[10px] text-[#94a3b8] mb-1 px-1">{senderName}</span>
         )}
-        {message.kind === 'attachment' && message.attachment ? (
-          <AttachmentBubble attachment={message.attachment} isOwn={isOwn} />
-        ) : message.kind === 'audio' && message.audio ? (
-          <audio controls src={message.audio.url} className="max-w-full" />
-        ) : (
-          <div
-            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap w-full ${
-              isOwn
-                ? 'bg-indigo-500 text-white rounded-br-sm'
-                : 'bg-[#2a2a3e] text-[#e2e8f0] rounded-bl-sm'
-            }`}
-            style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
-          >
-            {message.text}
-          </div>
-        )}
+        <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+          {message.kind === 'attachment' && message.attachment ? (
+            <AttachmentBubble attachment={message.attachment} isOwn={isOwn} />
+          ) : message.kind === 'audio' && message.audio ? (
+            <AudioPlayer src={message.audio.url} isOwn={isOwn} />
+          ) : (
+            <div
+              className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                isOwn
+                  ? 'bg-indigo-500 text-white rounded-br-sm'
+                  : 'bg-[#2a2a3e] text-[#e2e8f0] rounded-bl-sm'
+              }`}
+              style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+            >
+              {message.text}
+            </div>
+          )}
+          {onDelete && (hovered || menuOpen) && (
+            <button
+              onClick={handleDelete}
+              title="Delete message"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
+            >
+              <IoTrashOutline className="text-base" />
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1 mt-0.5 px-1">
           <span className="text-[10px] text-[#94a3b8]">{formatTime(message.timestamp)}</span>
           {isOwn && (
