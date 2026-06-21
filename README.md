@@ -4,6 +4,8 @@ A minimal real-time chat application built as a portfolio project. Supports dire
 
 **Live demo → [https://do-chit-chat.web.app](https://do-chit-chat.web.app)**
 
+**Step-by-step build guide → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white&style=flat-square)
 ![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?logo=firebase&logoColor=black&style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white&style=flat-square)

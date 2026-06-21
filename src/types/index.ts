@@ -7,9 +7,31 @@ export interface User {
   lastSeen: number
 }
 
+export type MessageKind = 'text' | 'attachment' | 'audio'
+
+export interface Attachment {
+  type: 'image' | 'pdf'
+  url: string
+  publicId: string
+  name: string
+  size: number
+  mimeType: string
+  width?: number
+  height?: number
+}
+
+export interface AudioClip {
+  url: string
+  publicId: string
+  duration: number
+}
+
 export interface Message {
   id: string
-  text: string
+  kind?: MessageKind
+  text?: string
+  attachment?: Attachment
+  audio?: AudioClip
   senderId: string
   timestamp: number
   readBy: string[]
