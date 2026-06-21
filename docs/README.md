@@ -6,10 +6,11 @@ A historical, time-ordered record of how this project was built. Each doc is fro
 
 | # | Doc | Summary |
 |---|---|---|
-| 0 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Living overview — the 12-step build guide and mental model. Update this when the system changes. |
-| 1 | [01-initial-build.md](./01-initial-build.md) | The original plan: scaffold, Firebase setup, auth, conversations, messages, presence, read receipts, groups, mobile UI |
-| 2 | [02-audit-improvements.md](./02-audit-improvements.md) | Post-launch audit pass: title/favicon/OG tags, `.firebase/` ignore, N+1 fix, case-insensitive search, message pagination, date separators, typing indicator, leave conversation, long-text wrap, 1000-char message limit |
-| 3 | [03-attachments-and-voice.md](./03-attachments-and-voice.md) | Adding image (`.jpg`/`.png`/`.gif`/`.webp`) and PDF attachments plus voice notes, with an industry-standard quarantine → AV-scan → release pipeline |
+| 0 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Living overview — full mental model, data model, hook contracts. Update this when the system changes. |
+| 1 | [01-initial-build.md](./01-initial-build.md) | Original scaffold: Firebase setup, auth, conversations, messages, presence, read receipts, groups, mobile UI |
+| 2 | [02-audit-improvements.md](./02-audit-improvements.md) | Audit pass: title/favicon/OG tags, N+1 fix, case-insensitive search, pagination, date separators, typing indicator, leave conversation, long-text wrap, 1000-char message limit |
+| 3 | [03-attachments-and-voice.md](./03-attachments-and-voice.md) | Image/PDF attachments + voice notes via Cloudinary — magic-byte validation, image compression, custom audio player |
+| 4 | [04-ux-and-polish.md](./04-ux-and-polish.md) | Delete message, multi-file upload, silent upload UX, avatar fallback initials, sidebar leave button, cursor pointer, audio player alignment |
 
 ## Doc convention
 

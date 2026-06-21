@@ -18,36 +18,65 @@ pnpm exec firebase deploy --only hosting --project do-chit-chat
 
 ## Architecture
 
-**Auth gate** — `App.tsx` checks `useAuth` (wraps Firebase `onAuthStateChanged`). Unauthenticated users see `GoogleSignIn`; authenticated users go straight to `ChatPage`.
+**Auth gate** — `App.tsx` checks `useAuth` (wraps `onAuthStateChanged`). Unauthenticated → `GoogleSignIn`; authenticated → `ChatPage`.
 
-**Data flow** — Three custom hooks drive all data:
-- `useConversations(uid)` — `onSnapshot` on conversations where user is a member; enriches each with member user docs fetched individually
-- `useMessages(convoId, uid)` — `onSnapshot` on the messages subcollection; also batch-updates `readBy` on open
-- `usePresence(uid)` — writes online status to Firebase Realtime Database with `.onDisconnect()` fallback; also listens to `visibilitychange`
+**Data flow** — Custom hooks drive all data:
+- `useConversations(uid)` — `onSnapshot` on conversations where user is a member; enriches each doc with per-member user docs fetched individually
+- `useMessages(convoId, uid)` — `onSnapshot` desc-ordered with `limit(50)`; reversed for display. `loadMore()` uses `startAfter` cursor for pagination. Also batch-updates `readBy` on open.
+- `usePresence(uid)` — writes online/offline to Firebase Realtime Database with `.onDisconnect()` fallback; also listens to `visibilitychange`
+- `useTyping(convoId, uid)` — writes `typing.{uid}: true` to the conversation doc, auto-clears after 2 s idle
+- `useTypingUsers(convoId, uid, memberDetails)` — reads `typing` map from the conversation doc, returns names of other typing users
+- `useAttachmentUpload(convoId)` — validates → (compresses images via `browser-image-compression`) → uploads to Cloudinary; exposes `error`/`audioError` state only on failure, no progress UI
+- `useRecorder()` — `MediaRecorder` wrapper with auto format detection, 120 s max, mic permission error handling
 
-**Firebase services** — `src/lib/firebase.ts` exports `auth`, `db` (Firestore), and `rtdb` (Realtime Database). `rtdb` is conditionally initialized — it will be `null` if `VITE_FIREBASE_DATABASE_URL` is not set, so all presence code guards with `if (!rtdb)`.
+**Firebase services** — `src/lib/firebase.ts` exports `auth`, `db` (Firestore), `rtdb` (Realtime Database). `rtdb` is conditionally null if `VITE_FIREBASE_DATABASE_URL` is unset — all presence code guards with `if (!rtdb)`.
+
+**Cloudinary** — Images and PDFs are uploaded via `src/lib/cloudinary.ts` (XHR, no SDK) using an unsigned upload preset. Audio goes to `chatly/{convoId}/audio/`. File validation (`src/lib/fileValidation.ts`) uses `file-type` magic-byte sniffing + 5 MB cap before anything is sent. Cloudinary `publicId` is stored on every attachment/audio message for future deletion (not yet implemented client-side — requires server-side API secret).
 
 **Firestore data model:**
 ```
-users/{uid}               — displayName, photoURL, email, online, lastSeen
-conversations/{id}        — type, name (groups), members[], lastMessage, createdAt
-conversations/{id}/messages/{id} — text, senderId, timestamp, readBy[]
+users/{uid}
+  displayName, displayNameLower, photoURL, email, online, lastSeen
+
+conversations/{id}
+  type ('direct'|'group'), name (groups only), members[], lastMessage, createdAt
+  typing.{uid}: boolean   ← ephemeral typing state
+
+conversations/{id}/messages/{id}
+  kind: 'text' | 'attachment' | 'audio'
+  text?: string
+  attachment?: { type, url, publicId, name, size, mimeType, width?, height? }
+  audio?: { url, publicId, duration }
+  senderId, timestamp, readBy[]
 ```
 
-**Read receipts** — `readBy` is an array of UIDs on each message. A message is "seen by all" when every member except the sender is in `readBy`. `useMessages` batch-updates unread messages when a conversation is opened.
+**Message kinds** — `MessageBubble` switches on `kind`: text → styled div, attachment → `AttachmentBubble` (image lightbox or PDF download card), audio → `AudioPlayer` (custom player, not native `<audio>`).
 
-**Mobile layout** — Sidebar is `fixed` and off-screen by default on mobile (`-translate-x-full`), toggled via `mobileOpen` state in `ChatPage`. The hamburger button in `ChatHeader` opens it; tapping the backdrop or selecting a conversation closes it.
+**Search** — `SearchUsers` queries `displayNameLower` (stored on write in `useAuth`) for case-insensitive prefix search via Firestore range query.
+
+**Read receipts** — `readBy[]` on each message. "All read" = every member except sender is in the array. `useMessages` batch-updates on conversation open.
+
+**Delete message** — `deleteDoc` on the message doc. Firestore `onSnapshot` propagates the deletion to all clients instantly. Cloudinary asset cleanup is deferred (requires a Cloud Function with the API secret).
+
+**Mobile layout** — Sidebar is `fixed` off-screen (`-translate-x-full`) on mobile, toggled via `mobileOpen` in `ChatPage`. Hamburger in `ChatHeader` opens it; selecting a conversation or tapping the backdrop closes it.
+
+**Avatar fallback** — `Avatar` component uses `onError` to catch broken image URLs and falls back to initials with a deterministic color derived from the user's name.
+
+**Leave conversation** — hover a conversation item in the sidebar to reveal a trash icon; confirms then calls `arrayRemove(uid)` on the members array.
 
 ## Environment
 
-All Firebase config goes in `.env.local` with `VITE_` prefix. See `.env.example` for required keys. The Firebase project ID is `do-chit-chat`.
+All config in `.env.local` with `VITE_` prefix. See `.env.example` for required keys. Firebase project ID: `do-chit-chat`. Cloudinary keys: `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`.
 
 ## Deployment
 
-Hosted at **https://do-chit-chat.web.app** via Firebase Hosting. `firebase.json` points to `dist/`. Always `pnpm build` before deploying hosting.
+Hosted at **https://do-chit-chat.web.app** via Firebase Hosting. Always `pnpm build` before deploying hosting.
 
 After deploying to a new domain, add it to **Firebase Console → Authentication → Settings → Authorized domains**.
 
-## Key gotcha
+## Key gotchas
 
-`User` from `firebase/auth` is a type-only export in Firebase SDK v12+. Always import it as `import type { User } from 'firebase/auth'` — a regular import causes a silent module crash (root div stays empty, no console error).
+- `User` from `firebase/auth` must be `import type` in Firebase SDK v12+ — a regular import silently crashes the app (blank page, no console error).
+- `rtdb` can be `null` — always guard presence/typing code with `if (!rtdb)`.
+- Firestore indexes for the `displayNameLower` range query are in `firestore.indexes.json`. Do not add single-field indexes manually — Firestore auto-manages them and a trailing comma in the JSON will break `firebase deploy`.
+- Image compression (`browser-image-compression`) runs in a Web Worker — it is non-blocking but can take a moment on large files; the upload starts after it completes.

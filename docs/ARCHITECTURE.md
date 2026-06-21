@@ -1,6 +1,6 @@
-# Chatly — Build Guide
+# Chatly — Architecture
 
-A step-by-step walkthrough of how this project was built. Follow it top-to-bottom to rebuild from scratch, or jump to a step to understand a specific piece.
+A step-by-step walkthrough of how this project was built, plus a living reference for the current system. Follow it top-to-bottom to rebuild from scratch, or jump to a section to understand a specific piece.
 
 ---
 
@@ -9,11 +9,12 @@ A step-by-step walkthrough of how this project was built. Follow it top-to-botto
 ```bash
 pnpm create vite chat-app --template react-ts
 cd chat-app
-pnpm add firebase tailwindcss @tailwindcss/vite framer-motion react-icons
+pnpm add firebase tailwindcss @tailwindcss/vite framer-motion react-icons \
+         browser-image-compression file-type
 pnpm add -D firebase-tools
 ```
 
-Tailwind v4 wires up via the `@tailwindcss/vite` plugin in `vite.config.ts` — no `tailwind.config.js` is needed.
+Tailwind v4 wires up via the `@tailwindcss/vite` plugin in `vite.config.ts` — no `tailwind.config.js` needed.
 
 ---
 
@@ -22,7 +23,7 @@ Tailwind v4 wires up via the `@tailwindcss/vite` plugin in `vite.config.ts` — 
 1. Firebase Console → Create project (`do-chit-chat`)
 2. Enable **Authentication → Google provider**
 3. Enable **Firestore** (production mode)
-4. Enable **Realtime Database** (used only for presence)
+4. Enable **Realtime Database** (presence only)
 5. Copy the web app config into `.env.local` with `VITE_FIREBASE_*` prefix
 6. `pnpm exec firebase init` → choose Hosting + Firestore
 
@@ -32,84 +33,199 @@ Tailwind v4 wires up via the `@tailwindcss/vite` plugin in `vite.config.ts` — 
 
 Exports `auth`, `db`, `rtdb`.
 
-**Gotcha:** Guard `rtdb` so it returns `null` when `VITE_FIREBASE_DATABASE_URL` is missing. Otherwise `getDatabase()` throws at module import and the whole app crashes silently (blank screen, no console error). All presence code does `if (!rtdb) return`.
+**Gotcha:** Guard `rtdb` so it returns `null` when `VITE_FIREBASE_DATABASE_URL` is missing — `getDatabase()` throws at module import and crashes the app silently (blank screen, no error). All presence code does `if (!rtdb) return`.
 
 ---
 
-## 4. Type model — `src/types/index.ts`
+## 4. Cloudinary setup (one-time)
 
-Defines `User`, `Conversation`, `Message`. Shapes match Firestore documents exactly.
+Create a free Cloudinary account. In the console:
 
----
+- **Settings → Upload → Upload presets → Add new**
+  - Mode: **Unsigned**; Folder: `chatly`; Allowed formats: `jpg,jpeg,png,gif,webp,pdf,webm,mp3,m4a,wav`; Max size: `5242880`; Resource type: `auto`
+- Add to `.env.local`:
+  ```
+  VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
+  VITE_CLOUDINARY_UPLOAD_PRESET=chatly_attachments
+  ```
 
-## 5. Auth layer — `src/hooks/useAuth.ts`
-
-- Wraps Firebase `onAuthStateChanged`
-- On first sign-in writes `users/{uid}` doc, including `displayNameLower` for case-insensitive search
-- `App.tsx` uses this as the auth gate: signed-out → `<GoogleSignIn />`, signed-in → `<ChatPage />`
-
-**Gotcha:** `User` from `firebase/auth` is a type-only export in Firebase SDK v12+. Use `import type { User } from 'firebase/auth'` — a regular import causes a silent module crash.
-
----
-
-## 6. Presence — `src/hooks/usePresence.ts`
-
-- Writes `online: true` to Realtime Database
-- Registers `.onDisconnect().set(false)` so the server marks the user offline if the browser crashes or loses network
-- Listens to `visibilitychange` for explicit tab away/return
+`src/lib/cloudinary.ts` uploads via plain XHR to `https://api.cloudinary.com/v1_1/{cloud}/auto/upload` — no SDK dependency.
 
 ---
 
-## 7. Conversation list — `src/hooks/useConversations.ts`
+## 5. Type model — `src/types/index.ts`
+
+Defines `User`, `Conversation`, `Message`, `Attachment`, `AudioClip`, `MessageKind`. Shapes match Firestore documents exactly.
+
+---
+
+## 6. Auth layer — `src/hooks/useAuth.ts`
+
+- Wraps `onAuthStateChanged`
+- On first sign-in writes `users/{uid}` including `displayNameLower` for case-insensitive search
+- `App.tsx`: signed-out → `<GoogleSignIn />`, signed-in → `<ChatPage />`
+
+**Gotcha:** `User` from `firebase/auth` is type-only in Firebase SDK v12+. Always `import type { User }` — a regular import silently crashes the app.
+
+---
+
+## 7. Presence — `src/hooks/usePresence.ts`
+
+- Writes `online: true` to Realtime Database on mount
+- `.onDisconnect().set(false)` marks the user offline if the browser crashes or loses network
+- Listens to `visibilitychange` to handle tab switching
+
+---
+
+## 8. Conversation list — `src/hooks/useConversations.ts`
 
 - `onSnapshot` on `conversations where members array-contains uid`
-- For each conversation, fetches member user docs and merges them into `memberDetails`
-- Uses an in-memory `Map` cache + `Promise.all` to avoid the N+1 read problem (a fresh fetch per conversation per render)
+- Fetches member user docs and merges into `memberDetails` using an in-memory `Map` cache + `Promise.all` (avoids the N+1 read problem)
 
 ---
 
-## 8. Messages — `src/hooks/useMessages.ts`
+## 9. Messages — `src/hooks/useMessages.ts`
 
-- `onSnapshot` on `conversations/{id}/messages` ordered desc with `limit(50)` — pagination
-- `loadMore()` uses `startAfter(oldestDoc)` to fetch older pages
-- On open, batch-updates the `readBy` array on every unread message → drives read receipts
-
----
-
-## 9. Send + typing — `useMessages.sendMessage` + `src/hooks/useTyping.ts`
-
-- Send: writes the message doc + updates the parent `lastMessage` field on the conversation
-- Typing: writes `typing.{uid}: true` on the conversation doc, auto-clears after 2s of no keystrokes
-- `useTypingUsers` listens to the same field and reports who is currently typing (excluding self)
+- `onSnapshot` on `conversations/{id}/messages` ordered desc, `limit(50)`; reversed for display
+- `loadMore()` uses `startAfter(oldestDoc)` cursor for older pages
+- Batch-updates `readBy` on open (drives read receipts)
+- `sendMessage(text, uid)` — writes message doc + updates `lastMessage` on parent conversation
+- `sendAttachment(attachment, uid)` — same but `kind: 'attachment'`; sidebar preview: `📷 Photo` / `📄 PDF`
+- `sendAudio(clip, uid)` — `kind: 'audio'`; sidebar preview: `🎤 Voice message (M:SS)`
+- `deleteMessage(id)` — `deleteDoc`; propagates to all clients via `onSnapshot`
 
 ---
 
-## 10. UI layout — `src/pages/ChatPage.tsx`
+## 10. Typing — `src/hooks/useTyping.ts`
+
+- `useTyping(convoId, uid)` — writes `typing.{uid}: true` on the conversation doc; auto-clears after 2 s of no keystrokes; clears on unmount
+- `useTypingUsers(convoId, uid, memberDetails)` — reads `typing` map, returns display names of other typing users
+
+---
+
+## 11. File upload pipeline — `src/hooks/useAttachmentUpload.ts`
+
+```
+File selected
+  → validateFile() in src/lib/fileValidation.ts
+      • 5 MB cap
+      • magic-byte sniff via file-type (catches renamed executables)
+      • MIME + extension whitelist
+  → (images only) browser-image-compression
+      • max 1 MB / 1920 px, Web Worker, non-blocking
+      • falls back to original on error
+  → uploadToCloudinary() in src/lib/cloudinary.ts
+      • XHR POST to auto/upload endpoint
+      • Cloudinary preset enforces type/size server-side
+  → onEach(attachment) callback → sendAttachment() → Firestore message doc
+```
+
+Uploads are silent (no progress UI). Only failures surface as dismissible error toasts.
+
+Audio follows the same path but skips compression:
+
+```
+Blob from MediaRecorder
+  → validateFile(blob, 'voice-note.webm')
+  → uploadToCloudinary to chatly/{convoId}/audio/
+  → sendAudio() → Firestore message doc
+```
+
+`publicId` is stored on every message for future server-side Cloudinary deletion (requires a Cloud Function + API secret — not yet deployed).
+
+---
+
+## 12. Voice recording — `src/hooks/useRecorder.ts`
+
+- Requests mic via `getUserMedia`
+- Auto-detects format: `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4` → `audio/mpeg`
+- 120 s hard limit; auto-stops and resolves at the limit
+- Handles `NotAllowedError` (mic denied) gracefully
+- `start()` → `stop()` returns `Promise<{blob, duration} | null>`
+
+---
+
+## 13. UI layout — `src/pages/ChatPage.tsx`
 
 Two-pane layout:
 
-- `<Sidebar />` — conversation list, user search, new-group modal
+- `<Sidebar />` — conversation list, user search, new-group modal, per-item leave button
 - `<ChatPanel />` — chat header, message list, message input
 
-**Mobile:** sidebar is a fixed full-width overlay (`-translate-x-full` when closed). Opens by default so users see conversations first; closes when one is selected.
+**Mobile:** sidebar is a fixed full-width overlay (`-translate-x-full` when closed). Opens by default; closes when a conversation is selected.
+
+### Component responsibilities
+
+| Component | Responsibility |
+|---|---|
+| `MessageBubble` | Switches on `kind` → text div / `AttachmentBubble` / `AudioPlayer`. Delete button on hover (own messages only) |
+| `AttachmentBubble` | Image: lazy `<img>` + click-to-lightbox. PDF: file card + download link |
+| `AudioPlayer` | Custom player: play/pause, seekable bar, time display. Themed to bubble colour |
+| `VoiceRecorder` | Red pulsing dot + live timer. Inline in `MessageInput` during recording |
+| `MessageInput` | Paperclip (multi-file), textarea, mic/send toggle. Only shows errors, never progress |
+| `Avatar` | Falls back to initials + deterministic colour on broken image URL |
+| `ConversationItem` | Hover reveals trash icon (leave conversation) replacing timestamp |
 
 ---
 
-## 11. Security — `firestore.rules`
+## 14. Security — `firestore.rules`
 
-- `users/{uid}` — anyone authenticated can read; only the owner can write
-- `conversations/{id}` and its `messages` subcollection — only listed members can read/write
+- `users/{uid}` — authenticated read; owner write only
+- `conversations/{id}` and messages subcollection — members-only read/write
 
-Composite index in `firestore.indexes.json` covers `members array-contains` + `createdAt desc`.
+Composite index in `firestore.indexes.json`: `members array-contains` + `createdAt desc`.
+
+**Gotcha:** Do not add single-field indexes to `firestore.indexes.json` — Firestore auto-manages them, and a trailing comma in the array causes a JSON parse error that breaks `firebase deploy`.
 
 ---
 
-## 12. Build, deploy, push
+## 15. Build, deploy, push
 
 ```bash
 pnpm build
-pnpm exec firebase deploy --project do-chit-chat
+pnpm exec firebase deploy --only hosting --project do-chit-chat
 git push
+```
+
+After deploying to a new domain, add it to **Firebase Console → Authentication → Settings → Authorized domains**.
+
+---
+
+## Firestore data model
+
+```
+users/{uid}
+  uid, displayName, displayNameLower, email, photoURL, lastSeen, online
+
+conversations/{id}
+  type: 'direct' | 'group'
+  name (groups only)
+  members: uid[]
+  lastMessage: { text, senderId, timestamp }
+  typing: { [uid]: boolean }
+  createdAt
+
+conversations/{id}/messages/{msgId}
+  kind: 'text' | 'attachment' | 'audio'
+  text?: string
+  attachment?: {
+    type: 'image' | 'pdf'
+    url: string          // Cloudinary CDN URL
+    publicId: string     // for future deletion
+    name: string
+    size: number
+    mimeType: string
+    width?: number
+    height?: number
+  }
+  audio?: {
+    url: string
+    publicId: string
+    duration: number     // seconds
+  }
+  senderId: string
+  timestamp: Timestamp
+  readBy: uid[]
 ```
 
 ---
@@ -121,42 +237,29 @@ Firebase Auth ──> useAuth ──> App.tsx (gate)
                                   │
                                   ▼
                               ChatPage
-                              /      \
-              useConversations      useMessages + useTyping
-                    │                       │
-              Firestore               Firestore subcollection
-              (real-time onSnapshot everywhere)
+                             /        \
+            useConversations           useMessages
+                  │                        │
+            Firestore                 Firestore subcollection
+            (onSnapshot)              (onSnapshot, paginated)
+
+File uploads (attachment / audio):
+  useAttachmentUpload ──> fileValidation ──> browser-image-compression (images)
+                      └──> cloudinary.ts (XHR) ──> Cloudinary CDN
+                                                       │
+                                                 useMessages.sendAttachment/sendAudio
+                                                       │
+                                                  Firestore ──> onSnapshot ──> all clients
 ```
 
-Every UI update is driven by an `onSnapshot` listener — there is no manual refresh anywhere in the app. That is what makes it feel real-time.
-
----
-
-## Firestore data model
-
-```
-users/{uid}
-  uid, displayName, displayNameLower, email, photoURL, lastSeen
-
-conversations/{id}
-  type: "direct" | "group"
-  name (groups only)
-  members: uid[]
-  lastMessage: { text, senderId, timestamp }
-  typing: { [uid]: boolean }
-  createdAt
-
-conversations/{id}/messages/{messageId}
-  text, senderId, timestamp, readBy: uid[]
-```
-
-`readBy` is the basis for read receipts: a message is "seen by all" when every member except the sender appears in the array.
+Every UI update is driven by an `onSnapshot` listener — no manual refresh anywhere. That is what makes it feel real-time.
 
 ---
 
 ## Common follow-ups
 
-- **Add a feature** → start by deciding which hook owns the data, then surface it through a component.
-- **Change security rules** → edit `firestore.rules` and deploy with `pnpm exec firebase deploy --only firestore:rules --project do-chit-chat`.
-- **Inspect Firestore** → Firebase Console → Firestore Database.
-- **Inspect presence** → Firebase Console → Realtime Database → `/status/{uid}`.
+- **Add a message type** → extend `MessageKind` in `types/index.ts`, add a send method to `useMessages`, add a case to `MessageBubble`
+- **Implement Cloudinary asset deletion on message delete** → needs a Firebase Cloud Function (`onDocumentDeleted` trigger); requires Blaze plan and Cloudinary API secret set via `firebase functions:secrets:set`
+- **Change security rules** → edit `firestore.rules`, deploy with `pnpm exec firebase deploy --only firestore:rules --project do-chit-chat`
+- **Inspect Firestore** → Firebase Console → Firestore Database
+- **Inspect presence** → Firebase Console → Realtime Database → `/status/{uid}`
