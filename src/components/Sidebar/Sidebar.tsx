@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { auth } from '../../lib/firebase'
+import { arrayRemove, doc, updateDoc } from 'firebase/firestore'
+import { auth, db } from '../../lib/firebase'
 import type { Conversation } from '../../types'
 import type { User as FirebaseUser } from 'firebase/auth'
 import { Avatar } from '../UI/Avatar'
@@ -27,6 +28,12 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
   const handleSelect = (id: string) => {
     onSelect(id)
     onMobileClose()
+  }
+
+  const handleLeave = async (convoId: string) => {
+    await updateDoc(doc(db, 'conversations', convoId), {
+      members: arrayRemove(user.uid),
+    })
   }
 
   return (
@@ -88,6 +95,7 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
                 currentUid={user.uid}
                 active={c.id === activeId}
                 onClick={() => handleSelect(c.id)}
+                onDelete={() => handleLeave(c.id)}
               />
             ))
           )}
