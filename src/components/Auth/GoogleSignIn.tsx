@@ -7,6 +7,9 @@ import {
   IoPeopleOutline,
   IoCheckmarkDoneOutline,
   IoEllipseOutline,
+  IoImageOutline,
+  IoMicOutline,
+  IoTrashOutline,
 } from 'react-icons/io5'
 import { motion } from 'framer-motion'
 
@@ -22,6 +25,16 @@ const features = [
     desc: 'Create groups, name them, and add multiple members.',
   },
   {
+    icon: IoImageOutline,
+    title: 'Share files',
+    desc: 'Send images and PDFs — multiple files at once, compressed automatically.',
+  },
+  {
+    icon: IoMicOutline,
+    title: 'Voice notes',
+    desc: 'Record and send audio clips up to 2 minutes long.',
+  },
+  {
     icon: IoCheckmarkDoneOutline,
     title: 'Read receipts',
     desc: 'Blue double-check means your message has been seen.',
@@ -30,6 +43,11 @@ const features = [
     icon: IoEllipseOutline,
     title: 'Online status',
     desc: 'Green dot shows who is currently active.',
+  },
+  {
+    icon: IoTrashOutline,
+    title: 'Delete messages',
+    desc: 'Remove your own messages — disappears for everyone instantly.',
   },
 ]
 
