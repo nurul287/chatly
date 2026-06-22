@@ -32,11 +32,12 @@ export function NewGroupModal({ open, currentUid, onClose, onCreated }: Props) {
   const search = async (value: string) => {
     setTerm(value)
     if (value.trim().length < 2) { setResults([]); return }
+    const lower = value.toLowerCase()
     const q = query(
       collection(db, 'users'),
-      where('displayName', '>=', value),
-      where('displayName', '<=', value + ''),
-      orderBy('displayName'),
+      where('displayNameLower', '>=', lower),
+      where('displayNameLower', '<=', lower + ''),
+      orderBy('displayNameLower'),
       limit(10)
     )
     const snap = await getDocs(q)
