@@ -6,7 +6,7 @@ import { useAttachmentUpload } from '../../hooks/useAttachmentUpload'
 import { ChatHeader } from './ChatHeader'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
-import { IoChatbubblesOutline } from 'react-icons/io5'
+import { IoChatbubblesOutline, IoMenuOutline } from 'react-icons/io5'
 
 interface Props {
   conversation: Conversation | null
@@ -83,9 +83,39 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex-col items-center justify-center gap-4 bg-[#16162a] hidden md:flex">
-        <IoChatbubblesOutline className="text-[#3f3f5a] text-6xl" />
-        <p className="text-[#94a3b8] text-sm">Select a conversation to start chatting</p>
+      <div className="flex-1 flex flex-col h-full bg-[#16162a]">
+        {/* Mobile top bar — gives users a way back to the sidebar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#3f3f5a] bg-[#1e1e2e] md:hidden">
+          <button
+            onClick={onMenuOpen}
+            className="p-2 rounded-lg hover:bg-[#2a2a3e] text-[#94a3b8] transition-colors"
+          >
+            <IoMenuOutline className="text-xl" />
+          </button>
+          <div className="flex items-center gap-2">
+            <IoChatbubblesOutline className="text-indigo-400 text-lg" />
+            <span className="text-white font-semibold text-sm">Chatly</span>
+          </div>
+        </div>
+
+        {/* Empty state — visible on both desktop and mobile */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+            <IoChatbubblesOutline className="text-indigo-400/50 text-3xl" />
+          </div>
+          <div>
+            <p className="text-white font-medium text-sm mb-1">No conversation open</p>
+            <p className="text-[#94a3b8] text-xs leading-relaxed">
+              Select a conversation from the sidebar or search for someone to message.
+            </p>
+          </div>
+          <button
+            onClick={onMenuOpen}
+            className="md:hidden mt-1 px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium transition-colors"
+          >
+            Open conversations
+          </button>
+        </div>
       </div>
     )
   }

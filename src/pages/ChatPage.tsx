@@ -12,7 +12,7 @@ interface Props {
 export function ChatPage({ user }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null)
   // On mobile, sidebar starts open so users can see conversations immediately
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth < 768)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const conversations = useConversations(user.uid)
 
   usePresence(user.uid)
