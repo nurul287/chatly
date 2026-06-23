@@ -13,6 +13,19 @@ export interface CloudinaryUploadResult {
   original_filename: string
 }
 
+/**
+ * Turns a Cloudinary delivery URL into one that forces a download with the
+ * original filename, by injecting the `fl_attachment` flag. Cloudinary then
+ * responds with `Content-Disposition: attachment`, so the browser saves the
+ * file instead of navigating to it.
+ */
+export function toDownloadUrl(url: string, filename?: string): string {
+  const flag = filename
+    ? `fl_attachment:${encodeURIComponent(filename.replace(/\.[^.]+$/, ''))}`
+    : 'fl_attachment'
+  return url.replace('/upload/', `/upload/${flag}/`)
+}
+
 export function uploadToCloudinary(
   file: File | Blob,
   folder: string,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Attachment } from '../../types'
-import { IoDocumentTextOutline, IoDownloadOutline, IoCloseOutline } from 'react-icons/io5'
+import { toDownloadUrl } from '../../lib/cloudinary'
+import { IoDocumentTextOutline, IoDownloadOutline, IoCloseOutline, IoOpenOutline } from 'react-icons/io5'
 
 interface Props {
   attachment: Attachment
@@ -35,13 +36,30 @@ export function AttachmentBubble({ attachment, isOwn }: Props) {
             onClick={() => setLightbox(false)}
             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
           >
-            <button
-              onClick={() => setLightbox(false)}
-              className="absolute top-4 right-4 text-white text-3xl p-2 hover:bg-white/10 rounded-full"
-            >
-              <IoCloseOutline />
-            </button>
-            <img src={attachment.url} alt={attachment.name} className="max-w-full max-h-full object-contain" />
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              <a
+                href={toDownloadUrl(attachment.url, attachment.name)}
+                download={attachment.name}
+                onClick={(e) => e.stopPropagation()}
+                title="Download"
+                className="text-white text-2xl p-2 hover:bg-white/10 rounded-full"
+              >
+                <IoDownloadOutline />
+              </a>
+              <button
+                onClick={() => setLightbox(false)}
+                title="Close"
+                className="text-white text-3xl p-2 hover:bg-white/10 rounded-full"
+              >
+                <IoCloseOutline />
+              </button>
+            </div>
+            <img
+              src={attachment.url}
+              alt={attachment.name}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-full object-contain cursor-default"
+            />
           </div>
         )}
       </>
@@ -49,14 +67,11 @@ export function AttachmentBubble({ attachment, isOwn }: Props) {
   }
 
   return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+    <div
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${
         isOwn
-          ? 'border-indigo-300/40 bg-indigo-400/20 hover:bg-indigo-400/30'
-          : 'border-[#3f3f5a] bg-[#1e1e2e] hover:bg-[#2a2a3e]'
+          ? 'border-indigo-300/40 bg-indigo-400/20'
+          : 'border-[#3f3f5a] bg-[#1e1e2e]'
       }`}
     >
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -72,7 +87,27 @@ export function AttachmentBubble({ attachment, isOwn }: Props) {
           PDF · {formatSize(attachment.size)}
         </p>
       </div>
-      <IoDownloadOutline className={`text-lg flex-shrink-0 ${isOwn ? 'text-white' : 'text-[#94a3b8]'}`} />
-    </a>
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open"
+        className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${
+          isOwn ? 'text-white hover:bg-white/15' : 'text-[#94a3b8] hover:bg-[#2a2a3e] hover:text-white'
+        }`}
+      >
+        <IoOpenOutline className="text-lg" />
+      </a>
+      <a
+        href={toDownloadUrl(attachment.url, attachment.name)}
+        download={attachment.name}
+        title="Download"
+        className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${
+          isOwn ? 'text-white hover:bg-white/15' : 'text-[#94a3b8] hover:bg-[#2a2a3e] hover:text-white'
+        }`}
+      >
+        <IoDownloadOutline className="text-lg" />
+      </a>
+    </div>
   )
 }

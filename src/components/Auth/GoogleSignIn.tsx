@@ -55,9 +55,9 @@ export function GoogleSignIn() {
   const signIn = () => signInWithPopup(auth, new GoogleAuthProvider())
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-[#1e1e2e] px-4 py-10">
+    <div className="min-h-dvh overflow-y-auto flex items-start justify-center bg-[#1e1e2e] px-4 py-8 sm:py-12">
       <motion.div
-        className="flex flex-col items-center gap-6 w-full max-w-sm"
+        className="flex flex-col items-center gap-5 sm:gap-6 w-full max-w-sm my-auto"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
