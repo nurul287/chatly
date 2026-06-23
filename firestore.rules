@@ -53,6 +53,11 @@ service cloud.firestore {
         || (existing().members.hasAll(incoming().members)
             && !(request.auth.uid in incoming().members)
             && changedKeys().hasOnly(['members', 'moderators']))
+
+        // 5. Adopt an adminless (legacy) group: a member claims admin when none exists
+        || (existing().get('createdBy', '') == ''
+            && incoming().get('createdBy', '') == request.auth.uid
+            && changedKeys().hasOnly(['createdBy', 'moderators']))
       );
 
       match /messages/{msgId} {

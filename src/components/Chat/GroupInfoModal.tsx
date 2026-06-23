@@ -50,7 +50,12 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
   const myRole = groupRole(conversation, currentUid)
   const isAdmin = myRole === 'admin'
   const canAdd = isAdmin || myRole === 'moderator'
+  const hasAdmin = !!conversation.createdBy
   const convoRef = doc(db, 'conversations', conversation.id)
+
+  const claimAdmin = async () => {
+    await updateDoc(convoRef, { createdBy: currentUid, moderators: conversation.moderators ?? [] })
+  }
 
   // Sort members: admin → moderators → members, each alphabetical
   const order = { admin: 0, moderator: 1, member: 2 }
@@ -161,6 +166,21 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-xs text-[#94a3b8]">{conversation.members.length} members</p>
+
+          {!hasAdmin && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-300">This group has no admin</p>
+                <p className="text-xs text-amber-200/70">Become admin to manage members and roles.</p>
+              </div>
+              <button
+                onClick={claimAdmin}
+                className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium transition-colors"
+              >
+                Become admin
+              </button>
+            </div>
+          )}
 
           {canAdd && (
             <button
