@@ -42,6 +42,10 @@ export interface Conversation {
   type: 'direct' | 'group'
   name?: string
   members: string[]
+  /** Group admin — the user who created the group. Has full control. */
+  createdBy?: string
+  /** Group moderators — can add members but cannot manage roles or delete. */
+  moderators?: string[]
   memberDetails?: Record<string, User>
   lastMessage?: {
     text: string
@@ -49,4 +53,12 @@ export interface Conversation {
     timestamp: number
   }
   createdAt: number
+}
+
+export type GroupRole = 'admin' | 'moderator' | 'member'
+
+export function groupRole(convo: Conversation, uid: string): GroupRole {
+  if (convo.createdBy === uid) return 'admin'
+  if (convo.moderators?.includes(uid)) return 'moderator'
+  return 'member'
 }

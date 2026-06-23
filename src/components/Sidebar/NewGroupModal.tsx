@@ -63,6 +63,8 @@ export function NewGroupModal({ open, currentUid, onClose, onCreated }: Props) {
       type: 'group',
       name: groupName.trim(),
       members: [currentUid, ...selected.map((u) => u.uid)],
+      createdBy: currentUid,
+      moderators: [],
       createdAt: serverTimestamp(),
     })
     setCreating(false)
