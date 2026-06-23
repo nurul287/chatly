@@ -36,9 +36,14 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
   const photo = convo.type === 'direct' ? other?.photoURL : undefined
   const online = convo.type === 'direct' ? other?.online : undefined
 
+  const isGroupAdmin = convo.type === 'group' && convo.createdBy === currentUid
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (window.confirm(`Leave "${name}"?`)) onDelete()
+    const msg = isGroupAdmin
+      ? `Delete group "${name}" for everyone? This cannot be undone.`
+      : `Leave "${name}"?`
+    if (window.confirm(msg)) onDelete()
   }
 
   return (
@@ -69,7 +74,7 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
           {hovered && (
             <button
               onClick={handleDelete}
-              title="Leave conversation"
+              title={isGroupAdmin ? 'Delete group' : 'Leave conversation'}
               className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[#94a3b8] hover:text-red-400 hover:bg-red-400/10 transition-colors"
             >
               <IoTrashOutline className="text-base" />

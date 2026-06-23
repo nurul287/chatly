@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
-import { arrayRemove, doc, updateDoc } from 'firebase/firestore'
+import { arrayRemove, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
 import type { Conversation } from '../../types'
 import type { User as FirebaseUser } from 'firebase/auth'
@@ -30,10 +30,17 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
     onMobileClose()
   }
 
-  const handleLeave = async (convoId: string) => {
-    await updateDoc(doc(db, 'conversations', convoId), {
-      members: arrayRemove(user.uid),
-    })
+  const handleLeave = async (convo: Conversation) => {
+    const ref = doc(db, 'conversations', convo.id)
+    // A group admin deletes the whole group; everyone else just removes themselves.
+    if (convo.type === 'group' && convo.createdBy === user.uid) {
+      await deleteDoc(ref)
+    } else {
+      await updateDoc(ref, {
+        members: arrayRemove(user.uid),
+        moderators: arrayRemove(user.uid),
+      })
+    }
   }
 
   return (
@@ -95,7 +102,7 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
                 currentUid={user.uid}
                 active={c.id === activeId}
                 onClick={() => handleSelect(c.id)}
-                onDelete={() => handleLeave(c.id)}
+                onDelete={() => handleLeave(c)}
               />
             ))
           )}
