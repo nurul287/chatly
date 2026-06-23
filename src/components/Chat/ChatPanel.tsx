@@ -12,6 +12,7 @@ interface Props {
   conversation: Conversation | null
   currentUid: string
   onMenuOpen: () => void
+  onConversationClosed: () => void
 }
 
 function isSameDay(a: unknown, b: unknown) {
@@ -41,7 +42,7 @@ function formatDate(ts: unknown) {
   return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
+export function ChatPanel({ conversation, currentUid, onMenuOpen, onConversationClosed }: Props) {
   const { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, hasMore, loadMore, loadingMore } = useMessages(
     conversation?.id ?? null,
     currentUid
@@ -128,6 +129,7 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen }: Props) {
         conversation={conversation}
         currentUid={currentUid}
         onMenuOpen={onMenuOpen}
+        onConversationClosed={onConversationClosed}
       />
 
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-2 bg-[#16162a]">

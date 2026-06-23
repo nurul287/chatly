@@ -38,6 +38,7 @@ export function ChatPage({ user }: Props) {
         conversation={activeConvo}
         currentUid={user.uid}
         onMenuOpen={() => setSidebarOpen(true)}
+        onConversationClosed={() => setActiveId(null)}
       />
     </div>
   )

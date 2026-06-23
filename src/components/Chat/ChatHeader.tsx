@@ -1,14 +1,19 @@
+import { useState } from 'react'
 import type { Conversation } from '../../types'
 import { Avatar } from '../UI/Avatar'
-import { IoPeopleOutline, IoMenuOutline } from 'react-icons/io5'
+import { GroupInfoModal } from './GroupInfoModal'
+import { IoPeopleOutline, IoMenuOutline, IoChevronForward } from 'react-icons/io5'
 
 interface Props {
   conversation: Conversation
   currentUid: string
   onMenuOpen: () => void
+  onConversationClosed: () => void
 }
 
-export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
+export function ChatHeader({ conversation, currentUid, onMenuOpen, onConversationClosed }: Props) {
+  const [infoOpen, setInfoOpen] = useState(false)
+
   const other =
     conversation.type === 'direct'
       ? Object.values(conversation.memberDetails ?? {}).find((u) => u.uid !== currentUid)
@@ -17,6 +22,7 @@ export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
   const name = conversation.type === 'group' ? conversation.name : other?.displayName ?? 'Unknown'
   const online = conversation.type === 'direct' ? other?.online : undefined
   const memberCount = conversation.members.length
+  const isGroup = conversation.type === 'group'
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-[#3f3f5a] bg-[#1e1e2e]">
@@ -27,22 +33,42 @@ export function ChatHeader({ conversation, currentUid, onMenuOpen }: Props) {
         <IoMenuOutline className="text-xl" />
       </button>
 
-      {conversation.type === 'group' ? (
-        <div className="w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
-          <IoPeopleOutline className="text-indigo-300" />
-        </div>
-      ) : (
-        <Avatar src={other?.photoURL} name={name} size={36} online={online} />
-      )}
-
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-white">{name}</p>
-        {conversation.type === 'group' ? (
-          <p className="text-xs text-[#94a3b8]">{memberCount} members</p>
+      <button
+        onClick={() => isGroup && setInfoOpen(true)}
+        disabled={!isGroup}
+        className={`flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg -mx-1 px-1 py-0.5 ${
+          isGroup ? 'hover:bg-[#2a2a3e] transition-colors' : 'cursor-default'
+        }`}
+      >
+        {isGroup ? (
+          <div className="w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
+            <IoPeopleOutline className="text-indigo-300" />
+          </div>
         ) : (
-          <p className="text-xs text-[#94a3b8]">{online ? 'Online' : 'Offline'}</p>
+          <Avatar src={other?.photoURL} name={name} size={36} online={online} />
         )}
-      </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white truncate">{name}</p>
+          {isGroup ? (
+            <p className="text-xs text-[#94a3b8]">{memberCount} members · tap for info</p>
+          ) : (
+            <p className="text-xs text-[#94a3b8]">{online ? 'Online' : 'Offline'}</p>
+          )}
+        </div>
+
+        {isGroup && <IoChevronForward className="text-[#94a3b8] flex-shrink-0" />}
+      </button>
+
+      {isGroup && (
+        <GroupInfoModal
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          conversation={conversation}
+          currentUid={currentUid}
+          onLeftOrDeleted={onConversationClosed}
+        />
+      )}
     </div>
   )
 }
