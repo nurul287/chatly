@@ -170,15 +170,23 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen, onConversation
                   <div className="flex-1 h-px bg-[#3f3f5a]" />
                 </div>
               )}
-              <MessageBubble
-                message={msg}
-                isOwn={isOwn}
-                members={conversation.members}
-                senderName={sender?.displayName}
-                senderPhoto={sender?.photoURL}
-                showSender={showSender}
-                onDelete={isOwn ? () => deleteMessage(msg.id) : undefined}
-              />
+              {msg.kind === 'system' ? (
+                <div className="flex justify-center px-4 my-1">
+                  <span className="text-[11px] text-[#94a3b8] bg-[#2a2a3e]/60 rounded-full px-3 py-1 text-center max-w-[85%]">
+                    {msg.text}
+                  </span>
+                </div>
+              ) : (
+                <MessageBubble
+                  message={msg}
+                  isOwn={isOwn}
+                  members={conversation.members}
+                  senderName={sender?.displayName}
+                  senderPhoto={sender?.photoURL}
+                  showSender={showSender}
+                  onDelete={isOwn ? () => deleteMessage(msg.id) : undefined}
+                />
+              )}
             </div>
           )
         })}

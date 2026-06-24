@@ -9,7 +9,8 @@ import {
   orderBy,
   limit,
 } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
+import { auth, db } from '../../lib/firebase'
+import { postSystemMessage } from '../../lib/systemMessage'
 import type { User } from '../../types'
 import { Avatar } from '../UI/Avatar'
 import { Modal } from '../UI/Modal'
@@ -67,6 +68,9 @@ export function NewGroupModal({ open, currentUid, onClose, onCreated }: Props) {
       moderators: [],
       createdAt: serverTimestamp(),
     })
+    const me = auth.currentUser?.displayName ?? 'Someone'
+    const names = selected.map((u) => u.displayName).join(', ')
+    await postSystemMessage(ref.id, `${me} created the group and added ${names}`, currentUid)
     setCreating(false)
     setSelected([])
     setGroupName('')

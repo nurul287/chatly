@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { arrayRemove, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
+import { postSystemMessage } from '../../lib/systemMessage'
 import type { Conversation } from '../../types'
 import type { User as FirebaseUser } from 'firebase/auth'
 import { Avatar } from '../UI/Avatar'
@@ -36,6 +37,10 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
     if (convo.type === 'group' && convo.createdBy === user.uid) {
       await deleteDoc(ref)
     } else {
+      if (convo.type === 'group') {
+        // Log the departure while still a member (rules forbid posting after leaving).
+        await postSystemMessage(convo.id, `${user.displayName ?? 'Someone'} left`, user.uid)
+      }
       await updateDoc(ref, {
         members: arrayRemove(user.uid),
         moderators: arrayRemove(user.uid),

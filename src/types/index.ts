@@ -7,7 +7,7 @@ export interface User {
   lastSeen: number
 }
 
-export type MessageKind = 'text' | 'attachment' | 'audio'
+export type MessageKind = 'text' | 'attachment' | 'audio' | 'system'
 
 export interface Attachment {
   type: 'image' | 'pdf'

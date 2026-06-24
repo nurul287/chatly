@@ -13,10 +13,12 @@ import {
   arrayRemove,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
+import { postSystemMessage } from '../../lib/systemMessage'
 import type { Conversation, User } from '../../types'
 import { groupRole } from '../../types'
 import { Avatar } from '../UI/Avatar'
 import { Modal } from '../UI/Modal'
+import { useConfirm } from '../UI/ConfirmDialog'
 import {
   IoSearchOutline,
   IoPersonAddOutline,
@@ -26,6 +28,7 @@ import {
   IoExitOutline,
   IoTrashOutline,
   IoArrowBack,
+  IoCloseCircle,
 } from 'react-icons/io5'
 
 interface Props {
@@ -45,16 +48,22 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
   const [addMode, setAddMode] = useState(false)
   const [term, setTerm] = useState('')
   const [results, setResults] = useState<User[]>([])
+  const [staged, setStaged] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
+  const confirm = useConfirm()
 
   const myRole = groupRole(conversation, currentUid)
   const isAdmin = myRole === 'admin'
   const canAdd = isAdmin || myRole === 'moderator'
   const hasAdmin = !!conversation.createdBy
   const convoRef = doc(db, 'conversations', conversation.id)
+  const myName = conversation.memberDetails?.[currentUid]?.displayName ?? 'Someone'
+  const nameOf = (uid: string) => conversation.memberDetails?.[uid]?.displayName ?? 'a member'
+  const log = (text: string) => postSystemMessage(conversation.id, text, currentUid)
 
   const claimAdmin = async () => {
     await updateDoc(convoRef, { createdBy: currentUid, moderators: conversation.moderators ?? [] })
+    await log(`${myName} is now the group admin`)
   }
 
   // Sort members: admin → moderators → members, each alphabetical
@@ -83,20 +92,45 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
     setResults(
       snap.docs
         .map((d) => d.data() as User)
-        .filter((u) => !conversation.members.includes(u.uid))
+        .filter((u) => !conversation.members.includes(u.uid) && !staged.some((s) => s.uid === u.uid))
     )
   }
 
-  const addMember = async (u: User) => {
-    setBusy(true)
-    await updateDoc(convoRef, { members: arrayUnion(u.uid) })
-    setBusy(false)
+  const stageMember = (u: User) => {
+    setStaged((prev) => [...prev, u])
     setResults((r) => r.filter((x) => x.uid !== u.uid))
     setTerm('')
   }
 
+  const unstageMember = (uid: string) => {
+    setStaged((prev) => prev.filter((u) => u.uid !== uid))
+  }
+
+  const exitAddMode = () => {
+    setAddMode(false)
+    setTerm('')
+    setResults([])
+    setStaged([])
+  }
+
+  const saveMembers = async () => {
+    if (staged.length === 0) return
+    setBusy(true)
+    await updateDoc(convoRef, { members: arrayUnion(...staged.map((u) => u.uid)) })
+    const names = staged.map((u) => u.displayName).join(', ')
+    await log(`${myName} added ${names}`)
+    setBusy(false)
+    exitAddMode()
+  }
+
   const removeMember = async (uid: string) => {
-    if (!window.confirm('Remove this member from the group?')) return
+    const ok = await confirm({
+      title: 'Remove member',
+      message: 'Remove this member from the group?',
+      confirmText: 'Remove',
+    })
+    if (!ok) return
+    await log(`${myName} removed ${nameOf(uid)}`)
     await updateDoc(convoRef, { members: arrayRemove(uid), moderators: arrayRemove(uid) })
   }
 
@@ -104,17 +138,34 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
     await updateDoc(convoRef, {
       moderators: isMod ? arrayRemove(uid) : arrayUnion(uid),
     })
+    await log(
+      isMod
+        ? `${myName} removed ${nameOf(uid)} as moderator`
+        : `${myName} made ${nameOf(uid)} a moderator`
+    )
   }
 
   const leaveGroup = async () => {
-    if (!window.confirm('Leave this group?')) return
+    const ok = await confirm({
+      title: 'Leave group',
+      message: 'Leave this group? You will need to be re-added to rejoin.',
+      confirmText: 'Leave',
+    })
+    if (!ok) return
+    // Post the log while still a member — rules forbid posting after leaving.
+    await log(`${myName} left`)
     await updateDoc(convoRef, { members: arrayRemove(currentUid), moderators: arrayRemove(currentUid) })
     onLeftOrDeleted()
     onClose()
   }
 
   const deleteGroup = async () => {
-    if (!window.confirm('Delete this group for everyone? This cannot be undone.')) return
+    const ok = await confirm({
+      title: 'Delete group',
+      message: 'Delete this group for everyone? This cannot be undone.',
+      confirmText: 'Delete',
+    })
+    if (!ok) return
     await deleteDoc(convoRef)
     onLeftOrDeleted()
     onClose()
@@ -127,11 +178,29 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
       {addMode ? (
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => { setAddMode(false); setTerm(''); setResults([]) }}
+            onClick={exitAddMode}
             className="flex items-center gap-1.5 text-xs text-[#94a3b8] hover:text-white transition-colors self-start"
           >
             <IoArrowBack /> Back to members
           </button>
+
+          {/* Staged selections as pills */}
+          {staged.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {staged.map((u) => (
+                <button
+                  key={u.uid}
+                  onClick={() => unstageMember(u.uid)}
+                  className="flex items-center gap-1.5 bg-indigo-500/20 text-indigo-300 text-xs pl-2 pr-2.5 py-1 rounded-full hover:bg-indigo-500/30 transition-colors"
+                >
+                  <Avatar src={u.photoURL} name={u.displayName} size={18} />
+                  <span className="max-w-[120px] truncate">{u.displayName}</span>
+                  <IoCloseCircle className="text-sm flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 bg-[#1e1e2e] rounded-xl px-3 py-2">
             <IoSearchOutline className="text-[#94a3b8] text-lg flex-shrink-0" />
             <input
@@ -142,16 +211,15 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
               className="bg-transparent text-sm text-white placeholder-[#94a3b8] outline-none flex-1"
             />
           </div>
-          <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+          <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
             {results.length === 0 && term.length >= 2 && (
               <p className="text-[#94a3b8] text-sm text-center py-4">No users found</p>
             )}
             {results.map((u) => (
               <button
                 key={u.uid}
-                disabled={busy}
-                onClick={() => addMember(u)}
-                className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#3f3f5a]/40 disabled:opacity-50 transition-colors text-left"
+                onClick={() => stageMember(u)}
+                className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#3f3f5a]/40 transition-colors text-left"
               >
                 <Avatar src={u.photoURL} name={u.displayName} size={36} />
                 <div className="flex-1 min-w-0">
@@ -162,6 +230,18 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
               </button>
             ))}
           </div>
+
+          <button
+            onClick={saveMembers}
+            disabled={busy || staged.length === 0}
+            className="w-full py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+          >
+            {busy
+              ? 'Adding...'
+              : staged.length === 0
+                ? 'Select members to add'
+                : `Add ${staged.length} member${staged.length > 1 ? 's' : ''}`}
+          </button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
