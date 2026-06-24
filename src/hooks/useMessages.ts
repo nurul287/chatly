@@ -66,6 +66,10 @@ export function useMessages(conversationId: string | null, currentUid: string | 
         }
       })
       await batch.commit()
+      // Mark the sidebar preview (lastMessage) as seen too — drives unread badges.
+      await updateDoc(doc(db, 'conversations', conversationId), {
+        'lastMessage.readBy': arrayUnion(currentUid),
+      }).catch(() => {})
     }
     markRead()
   }, [conversationId, currentUid])
@@ -103,7 +107,7 @@ export function useMessages(conversationId: string | null, currentUid: string | 
     if (replyTo) msg.replyTo = replyTo
     await addDoc(collection(db, 'conversations', conversationId, 'messages'), msg)
     await updateDoc(doc(db, 'conversations', conversationId), {
-      lastMessage: { text: text.trim(), senderId, timestamp: serverTimestamp() },
+      lastMessage: { text: text.trim(), senderId, timestamp: serverTimestamp(), readBy: [senderId] },
     })
   }
 
@@ -127,7 +131,7 @@ export function useMessages(conversationId: string | null, currentUid: string | 
       readBy: [senderId],
     })
     await updateDoc(doc(db, 'conversations', conversationId), {
-      lastMessage: { text: preview, senderId, timestamp: serverTimestamp() },
+      lastMessage: { text: preview, senderId, timestamp: serverTimestamp(), readBy: [senderId] },
     })
   }
 
@@ -144,7 +148,7 @@ export function useMessages(conversationId: string | null, currentUid: string | 
       readBy: [senderId],
     })
     await updateDoc(doc(db, 'conversations', conversationId), {
-      lastMessage: { text: preview, senderId, timestamp: serverTimestamp() },
+      lastMessage: { text: preview, senderId, timestamp: serverTimestamp(), readBy: [senderId] },
     })
   }
 

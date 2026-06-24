@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Conversation } from '../../types'
+import { isUnread } from '../../types'
 import { Avatar } from '../UI/Avatar'
 import { useConfirm } from '../UI/ConfirmDialog'
 import { IoPeopleOutline, IoTrashOutline } from 'react-icons/io5'
@@ -39,6 +40,7 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
   const online = convo.type === 'direct' ? other?.online : undefined
 
   const isGroupAdmin = convo.type === 'group' && convo.createdBy === currentUid
+  const unread = isUnread(convo, currentUid)
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -77,9 +79,9 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-white truncate">{name}</span>
+          <span className={`text-sm truncate ${unread ? 'font-bold text-white' : 'font-medium text-white'}`}>{name}</span>
           {!hovered && (
-            <span className="text-[10px] text-[#94a3b8] flex-shrink-0">
+            <span className={`text-[10px] flex-shrink-0 ${unread ? 'text-indigo-300 font-medium' : 'text-[#94a3b8]'}`}>
               {formatTime(convo.lastMessage?.timestamp)}
             </span>
           )}
@@ -93,9 +95,14 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
             </button>
           )}
         </div>
-        <p className="text-xs text-[#94a3b8] truncate mt-0.5">
-          {convo.lastMessage?.text ?? 'No messages yet'}
-        </p>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <p className={`text-xs truncate ${unread ? 'text-[#e2e8f0] font-medium' : 'text-[#94a3b8]'}`}>
+            {convo.lastMessage?.text ?? 'No messages yet'}
+          </p>
+          {unread && !hovered && (
+            <span className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-indigo-500" />
+          )}
+        </div>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { User as FirebaseUser } from 'firebase/auth'
 import { useConversations } from '../hooks/useConversations'
 import { usePresence } from '../hooks/usePresence'
+import { useUnreadTitle } from '../hooks/useUnreadTitle'
 import { Sidebar } from '../components/Sidebar/Sidebar'
 import { ChatPanel } from '../components/Chat/ChatPanel'
 
@@ -16,6 +17,7 @@ export function ChatPage({ user }: Props) {
   const conversations = useConversations(user.uid)
 
   usePresence(user.uid)
+  useUnreadTitle(conversations, user.uid)
 
   const activeConvo = conversations.find((c) => c.id === activeId) ?? null
 

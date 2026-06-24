@@ -61,8 +61,15 @@ export interface Conversation {
     text: string
     senderId: string
     timestamp: number
+    readBy?: string[]
   }
   createdAt: number
+}
+
+/** True if the conversation has an incoming message the user hasn't seen. */
+export function isUnread(convo: Conversation, uid: string): boolean {
+  const lm = convo.lastMessage
+  return !!lm && lm.senderId !== uid && !(lm.readBy ?? []).includes(uid)
 }
 
 export type GroupRole = 'admin' | 'moderator' | 'member'
