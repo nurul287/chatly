@@ -158,20 +158,37 @@ Two-pane layout:
 
 | Component | Responsibility |
 |---|---|
-| `MessageBubble` | Switches on `kind` → text div / `AttachmentBubble` / `AudioPlayer`. Delete button on hover (own messages only) |
-| `AttachmentBubble` | Image: lazy `<img>` + click-to-lightbox. PDF: file card + download link |
+| `MessageBubble` | Switches on `kind` → text div / `AttachmentBubble` / `AudioPlayer`. Delete button on hover (own messages only). `system` kind is rendered as a centered pill in `ChatPanel`, not here |
+| `AttachmentBubble` | Image: lazy `<img>` + lightbox with download. PDF: file card with Open + Download. Download fetches a blob to bypass cross-origin `download` restrictions |
 | `AudioPlayer` | Custom player: play/pause, seekable bar, time display. Themed to bubble colour |
 | `VoiceRecorder` | Red pulsing dot + live timer. Inline in `MessageInput` during recording |
 | `MessageInput` | Paperclip (multi-file), textarea, mic/send toggle. Only shows errors, never progress |
 | `Avatar` | Falls back to initials + deterministic colour on broken image URL |
-| `ConversationItem` | Hover reveals trash icon (leave conversation) replacing timestamp |
+| `ConversationItem` | Hover reveals trash icon (leave, or delete if group admin) replacing timestamp |
+| `GroupInfoModal` | Member list with role tags, add/remove members, moderator toggle, leave/delete, claim-admin for legacy groups |
+| `ConfirmProvider` / `useConfirm` | App-wide promise-based confirm dialog replacing `window.confirm` |
+
+### Group roles
+
+`Conversation.createdBy` is the **admin**; `Conversation.moderators[]` are mods. `groupRole(convo, uid)` returns `'admin' | 'moderator' | 'member'`. Admin: full control (rename, manage moderators, remove members, delete). Moderator: add members. Member: leave only. Legacy groups (no `createdBy`) show a "Become admin" banner to adopt the role once.
+
+### System / activity messages
+
+`kind: 'system'` messages (via `postSystemMessage()` in `lib/systemMessage.ts`) log group events — created, member added/removed/left, moderator changes, admin claimed — as centered pills. Posted **before** an actor leaves, since rules forbid posting once removed.
 
 ---
 
 ## 14. Security — `firestore.rules`
 
 - `users/{uid}` — authenticated read; owner write only
-- `conversations/{id}` and messages subcollection — members-only read/write
+- `conversations/{id}/messages` — members-only read/write
+- `conversations/{id}` — role-aware updates branched by `diff().affectedKeys()`:
+  1. Any member: only `lastMessage`/`typing` changed (message send / typing)
+  2. Admin or moderator: members only grows, creator preserved (add members)
+  3. Admin: creator preserved (rename, manage moderators, remove members)
+  4. Any member: removes only themselves (leave)
+  5. Adopt an adminless group: set `createdBy` to self when none exists
+- Delete is **admin-only**. Optional fields read with `.get(key, default)` so direct conversations don't error.
 
 Composite index in `firestore.indexes.json`: `members array-contains` + `createdAt desc`.
 
@@ -201,13 +218,15 @@ conversations/{id}
   type: 'direct' | 'group'
   name (groups only)
   members: uid[]
+  createdBy: uid          // group admin (creator)
+  moderators: uid[]       // can add members
   lastMessage: { text, senderId, timestamp }
   typing: { [uid]: boolean }
   createdAt
 
 conversations/{id}/messages/{msgId}
-  kind: 'text' | 'attachment' | 'audio'
-  text?: string
+  kind: 'text' | 'attachment' | 'audio' | 'system'
+  text?: string          // also the body of 'system' activity logs
   attachment?: {
     type: 'image' | 'pdf'
     url: string          // Cloudinary CDN URL

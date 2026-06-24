@@ -18,9 +18,11 @@ A real-time chat application built as a portfolio project. Supports direct messa
 
 - **Google Authentication** — sign in with one click, no passwords
 - **Direct messaging** — search any user by name (case-insensitive) and start a private conversation instantly
-- **Group chats** — create named groups and add multiple members
+- **Group chats with roles** — admin (creator), moderators, and members; member list with role tags
+- **Group management** — admin/moderators add members (staged multi-select), admin removes members, sets moderators, renames, or deletes; anyone can leave
+- **Activity logs** — WhatsApp-style system messages ("X added Y", "X left", "X is now admin")
 - **Real-time updates** — messages appear instantly via Firestore `onSnapshot`
-- **Image & PDF attachments** — select multiple files at once; images compressed before upload
+- **Image & PDF attachments** — select multiple files at once; images compressed before upload; download with original filename
 - **Voice notes** — record and send audio clips up to 2 minutes; custom playback UI
 - **Message deletion** — delete your own messages; removed for all members in real time
 - **Online/offline status** — green dot powered by Firebase Realtime Database presence
@@ -127,13 +129,15 @@ conversations/{id}
   type: 'direct' | 'group'
   name: string           # groups only
   members: uid[]
+  createdBy: uid         # group admin (creator)
+  moderators: uid[]      # can add members
   lastMessage: { text, senderId, timestamp }
   typing: { [uid]: boolean }
   createdAt
 
 conversations/{id}/messages/{id}
-  kind: 'text' | 'attachment' | 'audio'
-  text?: string
+  kind: 'text' | 'attachment' | 'audio' | 'system'
+  text?: string          # also the body of 'system' activity logs
   attachment?: { type, url, publicId, name, size, mimeType, width?, height? }
   audio?: { url, publicId, duration }
   senderId, timestamp

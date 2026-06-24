@@ -11,6 +11,7 @@ A historical, time-ordered record of how this project was built. Each doc is fro
 | 2 | [02-audit-improvements.md](./02-audit-improvements.md) | Audit pass: title/favicon/OG tags, N+1 fix, case-insensitive search, pagination, date separators, typing indicator, leave conversation, long-text wrap, 1000-char message limit |
 | 3 | [03-attachments-and-voice.md](./03-attachments-and-voice.md) | Image/PDF attachments + voice notes via Cloudinary — magic-byte validation, image compression, custom audio player |
 | 4 | [04-ux-and-polish.md](./04-ux-and-polish.md) | Delete message, multi-file upload, silent upload UX, avatar fallback initials, sidebar leave button, cursor pointer, audio player alignment |
+| 5 | [05-groups-and-polish.md](./05-groups-and-polish.md) | Group roles (admin/moderator/member), member management, file downloads, mobile sign-in fix, custom confirm dialog, WhatsApp-style system/activity logs |
 
 ## Doc convention
 

@@ -40,17 +40,25 @@ users/{uid}
 
 conversations/{id}
   type ('direct'|'group'), name (groups only), members[], lastMessage, createdAt
+  createdBy: uid          ← group admin (creator)
+  moderators: uid[]       ← can add members
   typing.{uid}: boolean   ← ephemeral typing state
 
 conversations/{id}/messages/{id}
-  kind: 'text' | 'attachment' | 'audio'
-  text?: string
+  kind: 'text' | 'attachment' | 'audio' | 'system'
+  text?: string           ← also the body of 'system' activity logs
   attachment?: { type, url, publicId, name, size, mimeType, width?, height? }
   audio?: { url, publicId, duration }
   senderId, timestamp, readBy[]
 ```
 
-**Message kinds** — `MessageBubble` switches on `kind`: text → styled div, attachment → `AttachmentBubble` (image lightbox or PDF download card), audio → `AudioPlayer` (custom player, not native `<audio>`).
+**Message kinds** — `MessageBubble` switches on `kind`: text → styled div, attachment → `AttachmentBubble` (image lightbox or PDF Open/Download), audio → `AudioPlayer` (custom player, not native `<audio>`). `system` messages are rendered as centered pills directly in `ChatPanel` (not `MessageBubble`).
+
+**Group roles** — `groupRole(convo, uid)` (in `types/index.ts`) returns `'admin' | 'moderator' | 'member'` from `createdBy`/`moderators`. Admin: rename, manage moderators, remove members, delete group. Moderator: add members. Member: leave only. `GroupInfoModal` (opened from the group header) renders the member list with role tags and gates actions by role. Legacy groups without `createdBy` show a "Become admin" banner to adopt the role once. Permissions are enforced server-side in `firestore.rules` (update branches keyed on `diff().affectedKeys()`; delete is admin-only).
+
+**System / activity logs** — `postSystemMessage()` (in `lib/systemMessage.ts`) writes `kind: 'system'` messages for group events (created, member added/removed/left, moderator changes, admin claimed). Always posted **before** an actor leaves, since rules forbid posting once removed.
+
+**Confirm dialog** — `ConfirmProvider` wraps the app; `useConfirm()` returns an async `confirm({title, message, confirmText, danger})` resolving to a boolean. Replaces all `window.confirm`. Renders at `z-[60]`, above modals.
 
 **Search** — `SearchUsers` queries `displayNameLower` (stored on write in `useAuth`) for case-insensitive prefix search via Firestore range query.
 
@@ -62,7 +70,9 @@ conversations/{id}/messages/{id}
 
 **Avatar fallback** — `Avatar` component uses `onError` to catch broken image URLs and falls back to initials with a deterministic color derived from the user's name.
 
-**Leave conversation** — hover a conversation item in the sidebar to reveal a trash icon; confirms then calls `arrayRemove(uid)` on the members array.
+**Leave / delete conversation** — hover a sidebar conversation item to reveal a trash icon. Group admin → deletes the group (`deleteDoc`); everyone else → removes self (`arrayRemove(uid)` on members + moderators).
+
+**File downloads** — `AttachmentBubble` fetches the file into a blob and saves via a same-origin object URL, because the `download` attribute is ignored for cross-origin (Cloudinary) URLs. `toDownloadUrl()` adds Cloudinary's `fl_attachment` flag for the fallback path.
 
 ## Environment
 
@@ -80,3 +90,5 @@ After deploying to a new domain, add it to **Firebase Console → Authentication
 - `rtdb` can be `null` — always guard presence/typing code with `if (!rtdb)`.
 - Firestore indexes for the `displayNameLower` range query are in `firestore.indexes.json`. Do not add single-field indexes manually — Firestore auto-manages them and a trailing comma in the JSON will break `firebase deploy`.
 - Image compression (`browser-image-compression`) runs in a Web Worker — it is non-blocking but can take a moment on large files; the upload starts after it completes.
+- Cloudinary free accounts **block PDF/ZIP delivery by default** — enable **Settings → Security → "Allow delivery of PDF and ZIP files"** or PDF open/download returns 401.
+- System/leave logs must be posted **before** removing a member from `members` — the security rules only allow current members to write messages.
