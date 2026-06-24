@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development workflow (always apply)
+
+When building or changing a feature, follow the `ship-feature` skill:
+
+1. **Build** — implement, then `pnpm build`; fix all type/lint errors.
+2. **Verify in mobile** — check every UI change at a mobile viewport (preview `mobile` 375×812, and ~360×600 for overflow). Nothing clipped, content scroll-reachable, no horizontal overflow. Share proof, don't ask the user to check.
+3. **Micro-commit** — small, one-concern commits with conventional messages. Never bundle unrelated changes.
+4. **Never deploy until told** — do not run `firebase deploy` (hosting/rules/functions) on your own. Push only when asked. Offer to deploy and wait for an explicit, per-time instruction.
+
 ## Commands
 
 ```bash
