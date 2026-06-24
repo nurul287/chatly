@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Conversation } from '../../types'
 import { Avatar } from '../UI/Avatar'
+import { useConfirm } from '../UI/ConfirmDialog'
 import { IoPeopleOutline, IoTrashOutline } from 'react-icons/io5'
 
 interface Props {
@@ -26,6 +27,7 @@ function formatTime(ts: unknown) {
 
 export function ConversationItem({ convo, currentUid, active, onClick, onDelete }: Props) {
   const [hovered, setHovered] = useState(false)
+  const confirm = useConfirm()
 
   const other =
     convo.type === 'direct'
@@ -38,12 +40,22 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
 
   const isGroupAdmin = convo.type === 'group' && convo.createdBy === currentUid
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    const msg = isGroupAdmin
-      ? `Delete group "${name}" for everyone? This cannot be undone.`
-      : `Leave "${name}"?`
-    if (window.confirm(msg)) onDelete()
+    const ok = await confirm(
+      isGroupAdmin
+        ? {
+            title: 'Delete group',
+            message: `Delete group "${name}" for everyone? This cannot be undone.`,
+            confirmText: 'Delete',
+          }
+        : {
+            title: 'Leave conversation',
+            message: `Leave "${name}"?`,
+            confirmText: 'Leave',
+          }
+    )
+    if (ok) onDelete()
   }
 
   return (

@@ -4,6 +4,7 @@ import type { Message } from '../../types'
 import { IoCheckmarkDone, IoCheckmark, IoTrashOutline } from 'react-icons/io5'
 import { AttachmentBubble } from './AttachmentBubble'
 import { AudioPlayer } from './AudioPlayer'
+import { useConfirm } from '../UI/ConfirmDialog'
 
 interface Props {
   message: Message
@@ -30,6 +31,7 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender,
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const confirm = useConfirm()
 
   const handleTouchStart = () => {
     if (!onDelete) return
@@ -39,10 +41,15 @@ export function MessageBubble({ message, isOwn, members, senderName, showSender,
     if (longPressTimer.current) clearTimeout(longPressTimer.current)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     setMenuOpen(false)
     setHovered(false)
-    if (window.confirm('Delete this message?')) onDelete?.()
+    const ok = await confirm({
+      title: 'Delete message',
+      message: 'Delete this message? This cannot be undone.',
+      confirmText: 'Delete',
+    })
+    if (ok) onDelete?.()
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useAuth } from './hooks/useAuth'
 import { GoogleSignIn } from './components/Auth/GoogleSignIn'
 import { ChatPage } from './pages/ChatPage'
+import { ConfirmProvider } from './components/UI/ConfirmDialog'
 
 function App() {
   const { user, loading } = useAuth()
@@ -13,9 +14,11 @@ function App() {
     )
   }
 
-  if (!user) return <GoogleSignIn />
-
-  return <ChatPage user={user} />
+  return (
+    <ConfirmProvider>
+      {!user ? <GoogleSignIn /> : <ChatPage user={user} />}
+    </ConfirmProvider>
+  )
 }
 
 export default App
