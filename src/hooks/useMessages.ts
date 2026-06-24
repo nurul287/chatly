@@ -10,6 +10,7 @@ import {
   updateDoc,
   deleteDoc,
   arrayUnion,
+  arrayRemove,
   writeBatch,
   getDocs,
   where,
@@ -19,7 +20,7 @@ import {
   type DocumentData,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Message, Attachment, AudioClip } from '../types'
+import type { Message, Attachment, AudioClip, ReplyRef } from '../types'
 
 const PAGE_SIZE = 50
 
@@ -90,18 +91,28 @@ export function useMessages(conversationId: string | null, currentUid: string | 
     setLoadingMore(false)
   }
 
-  const sendMessage = async (text: string, senderId: string) => {
+  const sendMessage = async (text: string, senderId: string, replyTo?: ReplyRef) => {
     if (!conversationId) return
-    const msg = {
+    const msg: Record<string, unknown> = {
       kind: 'text',
       text: text.trim(),
       senderId,
       timestamp: serverTimestamp(),
       readBy: [senderId],
     }
+    if (replyTo) msg.replyTo = replyTo
     await addDoc(collection(db, 'conversations', conversationId, 'messages'), msg)
     await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessage: { text: text.trim(), senderId, timestamp: serverTimestamp() },
+    })
+  }
+
+  const toggleReaction = async (messageId: string, emoji: string, uid: string) => {
+    if (!conversationId) return
+    const msg = messages.find((m) => m.id === messageId)
+    const reacted = msg?.reactions?.[emoji]?.includes(uid)
+    await updateDoc(doc(db, 'conversations', conversationId, 'messages', messageId), {
+      [`reactions.${emoji}`]: reacted ? arrayRemove(uid) : arrayUnion(uid),
     })
   }
 
@@ -142,5 +153,5 @@ export function useMessages(conversationId: string | null, currentUid: string | 
     await deleteDoc(doc(db, 'conversations', conversationId, 'messages', messageId))
   }
 
-  return { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, hasMore, loadMore, loadingMore }
+  return { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, toggleReaction, hasMore, loadMore, loadingMore }
 }

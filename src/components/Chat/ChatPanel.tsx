@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react'
-import type { Conversation } from '../../types'
+import { useEffect, useRef, useState } from 'react'
+import type { Conversation, ReplyRef } from '../../types'
 import { useMessages } from '../../hooks/useMessages'
 import { useTyping, useTypingUsers } from '../../hooks/useTyping'
 import { useAttachmentUpload } from '../../hooks/useAttachmentUpload'
 import { ChatHeader } from './ChatHeader'
-import { MessageBubble } from './MessageBubble'
+import { MessageBubble, previewText } from './MessageBubble'
 import { MessageInput } from './MessageInput'
 import { IoChatbubblesOutline, IoMenuOutline } from 'react-icons/io5'
 
@@ -43,10 +43,20 @@ function formatDate(ts: unknown) {
 }
 
 export function ChatPanel({ conversation, currentUid, onMenuOpen, onConversationClosed }: Props) {
-  const { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, hasMore, loadMore, loadingMore } = useMessages(
+  const { messages, sendMessage, sendAttachment, sendAudio, deleteMessage, toggleReaction, hasMore, loadMore, loadingMore } = useMessages(
     conversation?.id ?? null,
     currentUid
   )
+  const [replyTarget, setReplyTarget] = useState<ReplyRef | null>(null)
+
+  const startReply = (msg: { id: string; senderId: string }) => {
+    const full = messages.find((m) => m.id === msg.id)
+    if (!full) return
+    const senderName = msg.senderId === currentUid
+      ? 'You'
+      : conversation?.memberDetails?.[msg.senderId]?.displayName ?? 'Unknown'
+    setReplyTarget({ id: full.id, text: previewText(full).slice(0, 120), senderName })
+  }
   const {
     error: uploadError,
     clearError,
@@ -181,10 +191,13 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen, onConversation
                   message={msg}
                   isOwn={isOwn}
                   members={conversation.members}
+                  currentUid={currentUid}
                   senderName={sender?.displayName}
                   senderPhoto={sender?.photoURL}
                   showSender={showSender}
                   onDelete={isOwn ? () => deleteMessage(msg.id) : undefined}
+                  onReact={(emoji) => toggleReaction(msg.id, emoji, currentUid)}
+                  onReply={() => startReply(msg)}
                 />
               )}
             </div>
@@ -215,7 +228,9 @@ export function ChatPanel({ conversation, currentUid, onMenuOpen, onConversation
       </div>
 
       <MessageInput
-        onSend={(text) => { sendMessage(text, currentUid); stopTyping() }}
+        onSend={(text) => { sendMessage(text, currentUid, replyTarget ?? undefined); setReplyTarget(null); stopTyping() }}
+        replyTo={replyTarget}
+        onCancelReply={() => setReplyTarget(null)}
         onAttach={handleAttach}
         onVoice={handleVoice}
         uploadError={uploadError}

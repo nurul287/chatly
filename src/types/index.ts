@@ -26,6 +26,12 @@ export interface AudioClip {
   duration: number
 }
 
+export interface ReplyRef {
+  id: string
+  text: string
+  senderName: string
+}
+
 export interface Message {
   id: string
   kind?: MessageKind
@@ -35,6 +41,10 @@ export interface Message {
   senderId: string
   timestamp: number
   readBy: string[]
+  /** emoji → list of uids who reacted with it */
+  reactions?: Record<string, string[]>
+  /** snapshot of the message this one replies to */
+  replyTo?: ReplyRef
 }
 
 export interface Conversation {

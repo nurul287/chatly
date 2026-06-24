@@ -1,11 +1,14 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { IoSendSharp, IoAttachOutline, IoCloseOutline, IoMicOutline } from 'react-icons/io5'
 import { VoiceRecorder } from './VoiceRecorder'
+import type { ReplyRef } from '../../types'
 
 const MAX_LEN = 1000
 
 interface Props {
   onSend: (text: string) => void
+  replyTo: ReplyRef | null
+  onCancelReply: () => void
   onAttach: (files: File[]) => Promise<void>
   onVoice: (blob: Blob, duration: number) => Promise<void>
   uploadError: string | null
@@ -17,7 +20,7 @@ interface Props {
 }
 
 export function MessageInput({
-  onSend, onAttach, onVoice,
+  onSend, replyTo, onCancelReply, onAttach, onVoice,
   uploadError, onClearError,
   audioError, onClearAudioError,
   onKeyPress, onBlur,
@@ -49,6 +52,19 @@ export function MessageInput({
 
   return (
     <div className="flex flex-col gap-1 px-4 py-3 border-t border-[#3f3f5a] bg-[#1e1e2e]">
+
+      {/* Reply preview */}
+      {replyTo && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-1 rounded-lg bg-[#2a2a3e] border-l-2 border-indigo-400">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium text-indigo-300">Replying to {replyTo.senderName}</p>
+            <p className="text-xs text-[#94a3b8] truncate">{replyTo.text}</p>
+          </div>
+          <button onClick={onCancelReply} title="Cancel reply" className="text-[#94a3b8] hover:text-white flex-shrink-0">
+            <IoCloseOutline className="text-lg" />
+          </button>
+        </div>
+      )}
 
       {/* Error toasts — only shown on failure */}
       {uploadError && (
