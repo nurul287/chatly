@@ -3,18 +3,20 @@ import { signOut } from 'firebase/auth'
 import { arrayRemove, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
 import { postSystemMessage } from '../../lib/systemMessage'
-import type { Conversation } from '../../types'
+import type { Conversation, User } from '../../types'
 import type { User as FirebaseUser } from 'firebase/auth'
 import { Avatar } from '../UI/Avatar'
 import { ConversationItem } from './ConversationItem'
 import { Modal } from '../UI/Modal'
 import { SearchUsers } from './SearchUsers'
 import { NewGroupModal } from './NewGroupModal'
+import { ProfileModal } from '../Profile/ProfileModal'
 import { IoCreateOutline, IoPeopleOutline, IoLogOutOutline, IoChevronBack } from 'react-icons/io5'
 import { IoChatbubblesOutline } from 'react-icons/io5'
 
 interface Props {
   user: FirebaseUser
+  profile: User | null
   conversations: Conversation[]
   activeId: string | null
   onSelect: (id: string) => void
@@ -22,9 +24,13 @@ interface Props {
   onMobileClose: () => void
 }
 
-export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, onMobileClose }: Props) {
+export function Sidebar({ user, profile, conversations, activeId, onSelect, mobileOpen, onMobileClose }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+
+  const myName = profile?.displayName ?? user.displayName
+  const myPhoto = profile?.photoURL ?? user.photoURL
 
   const handleSelect = (id: string) => {
     onSelect(id)
@@ -115,14 +121,21 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
 
         {/* Footer / user info */}
         <div className="flex items-center gap-3 px-4 py-4 border-t border-[#3f3f5a] min-h-[64px] flex-shrink-0">
-          <Avatar src={user.photoURL} name={user.displayName} size={36} />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
-          </div>
+          <button
+            onClick={() => setProfileOpen(true)}
+            title="Edit profile"
+            className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg -mx-1 px-1 py-1 hover:bg-[#2a2a3e] transition-colors"
+          >
+            <Avatar src={myPhoto} name={myName} size={36} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{myName}</p>
+              {profile?.about && <p className="text-[11px] text-[#94a3b8] truncate">{profile.about}</p>}
+            </div>
+          </button>
           <button
             title="Sign out"
             onClick={() => signOut(auth)}
-            className="p-1.5 rounded-lg hover:bg-[#2a2a3e] text-[#94a3b8] hover:text-red-400 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[#2a2a3e] text-[#94a3b8] hover:text-red-400 transition-colors flex-shrink-0"
           >
             <IoLogOutOutline className="text-lg" />
           </button>
@@ -153,6 +166,14 @@ export function Sidebar({ user, conversations, activeId, onSelect, mobileOpen, o
         currentUid={user.uid}
         onClose={() => setGroupOpen(false)}
         onCreated={handleSelect}
+      />
+
+      {/* Profile modal */}
+      <ProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={user}
+        profile={profile}
       />
     </>
   )

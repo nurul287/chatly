@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import type { User as FirebaseUser } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
+import type { User } from '../types'
 
 export function useAuth() {
   const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,5 +31,13 @@ export function useAuth() {
     })
   }, [])
 
-  return { user, loading }
+  // Subscribe to the user's own profile doc so edits reflect live everywhere.
+  useEffect(() => {
+    if (!user) { setProfile(null); return }
+    return onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) setProfile(snap.data() as User)
+    })
+  }, [user])
+
+  return { user, profile, loading }
 }

@@ -4,7 +4,7 @@ import { ChatPage } from './pages/ChatPage'
 import { ConfirmProvider } from './components/UI/ConfirmDialog'
 
 function App() {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   if (loading) {
     return (
@@ -16,7 +16,7 @@ function App() {
 
   return (
     <ConfirmProvider>
-      {!user ? <GoogleSignIn /> : <ChatPage user={user} />}
+      {!user ? <GoogleSignIn /> : <ChatPage user={user} profile={profile} />}
     </ConfirmProvider>
   )
 }

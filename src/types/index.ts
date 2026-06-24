@@ -3,6 +3,7 @@ export interface User {
   displayName: string
   email: string
   photoURL: string
+  about?: string
   online: boolean
   lastSeen: number
 }
