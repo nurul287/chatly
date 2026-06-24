@@ -14,8 +14,39 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/**
+ * Cross-origin `download` attributes are ignored by browsers, so we fetch the
+ * file into a blob (same-origin object URL) and save that. Falls back to opening
+ * the attachment-flagged URL in a new tab if the fetch is blocked.
+ */
+async function downloadFile(url: string, filename: string) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(String(res.status))
+    const blob = await res.blob()
+    const objUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(objUrl)
+  } catch {
+    window.open(toDownloadUrl(url, filename), '_blank', 'noopener')
+  }
+}
+
 export function AttachmentBubble({ attachment, isOwn }: Props) {
   const [lightbox, setLightbox] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (downloading) return
+    setDownloading(true)
+    await downloadFile(attachment.url, attachment.name)
+    setDownloading(false)
+  }
 
   if (attachment.type === 'image') {
     return (
@@ -37,15 +68,14 @@ export function AttachmentBubble({ attachment, isOwn }: Props) {
             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
           >
             <div className="absolute top-4 right-4 flex items-center gap-2">
-              <a
-                href={toDownloadUrl(attachment.url, attachment.name)}
-                download={attachment.name}
-                onClick={(e) => e.stopPropagation()}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDownload() }}
+                disabled={downloading}
                 title="Download"
-                className="text-white text-2xl p-2 hover:bg-white/10 rounded-full"
+                className="text-white text-2xl p-2 hover:bg-white/10 rounded-full disabled:opacity-50"
               >
                 <IoDownloadOutline />
-              </a>
+              </button>
               <button
                 onClick={() => setLightbox(false)}
                 title="Close"
@@ -98,16 +128,16 @@ export function AttachmentBubble({ attachment, isOwn }: Props) {
       >
         <IoOpenOutline className="text-lg" />
       </a>
-      <a
-        href={toDownloadUrl(attachment.url, attachment.name)}
-        download={attachment.name}
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
         title="Download"
-        className={`p-1.5 rounded-lg flex-shrink-0 transition-colors ${
+        className={`p-1.5 rounded-lg flex-shrink-0 transition-colors disabled:opacity-50 ${
           isOwn ? 'text-white hover:bg-white/15' : 'text-[#94a3b8] hover:bg-[#2a2a3e] hover:text-white'
         }`}
       >
         <IoDownloadOutline className="text-lg" />
-      </a>
+      </button>
     </div>
   )
 }
