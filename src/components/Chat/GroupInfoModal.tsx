@@ -12,7 +12,10 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore'
+import imageCompression from 'browser-image-compression'
 import { db } from '../../lib/firebase'
+import { uploadToCloudinary } from '../../lib/cloudinary'
+import { validateFile } from '../../lib/fileValidation'
 import { postSystemMessage } from '../../lib/systemMessage'
 import type { Conversation, User } from '../../types'
 import { groupRole } from '../../types'
@@ -29,6 +32,9 @@ import {
   IoTrashOutline,
   IoArrowBack,
   IoCloseCircle,
+  IoCameraOutline,
+  IoPencilOutline,
+  IoPeopleOutline,
 } from 'react-icons/io5'
 
 interface Props {
@@ -46,10 +52,15 @@ const roleStyle: Record<string, string> = {
 
 export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeftOrDeleted }: Props) {
   const [addMode, setAddMode] = useState(false)
+  const [editMode, setEditMode] = useState(false)
   const [term, setTerm] = useState('')
   const [results, setResults] = useState<User[]>([])
   const [staged, setStaged] = useState<User[]>([])
   const [busy, setBusy] = useState(false)
+  const [gName, setGName] = useState(conversation.name ?? '')
+  const [gDesc, setGDesc] = useState(conversation.description ?? '')
+  const [gPhoto, setGPhoto] = useState(conversation.photoURL ?? '')
+  const [photoUploading, setPhotoUploading] = useState(false)
   const confirm = useConfirm()
 
   const myRole = groupRole(conversation, currentUid)
@@ -64,6 +75,40 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
   const claimAdmin = async () => {
     await updateDoc(convoRef, { createdBy: currentUid, moderators: conversation.moderators ?? [] })
     await log(`${myName} is now the group admin`)
+  }
+
+  const openEdit = () => {
+    setGName(conversation.name ?? '')
+    setGDesc(conversation.description ?? '')
+    setGPhoto(conversation.photoURL ?? '')
+    setEditMode(true)
+  }
+
+  const onGroupPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const v = await validateFile(file)
+    if (!v.ok || v.kind !== 'image') return
+    setPhotoUploading(true)
+    try {
+      const compressed = await imageCompression(file, { maxSizeMB: 0.3, maxWidthOrHeight: 512, useWebWorker: true })
+      const res = await uploadToCloudinary(compressed, 'chatly/groups')
+      setGPhoto(res.secure_url)
+    } catch { /* ignore */ } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  const saveGroupInfo = async () => {
+    const name = gName.trim()
+    if (!name) return
+    setBusy(true)
+    const renamed = name !== (conversation.name ?? '')
+    await updateDoc(convoRef, { name, description: gDesc.trim(), photoURL: gPhoto })
+    if (renamed) await log(`${myName} renamed the group to "${name}"`)
+    setBusy(false)
+    setEditMode(false)
   }
 
   // Sort members: admin → moderators → members, each alphabetical
@@ -171,11 +216,61 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
     onClose()
   }
 
-  const title = addMode ? 'Add members' : conversation.name ?? 'Group'
+  const title = addMode ? 'Add members' : editMode ? 'Edit group' : conversation.name ?? 'Group'
 
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      {addMode ? (
+      {editMode ? (
+        <div className="flex flex-col gap-4">
+          <button
+            onClick={() => setEditMode(false)}
+            className="flex items-center gap-1.5 text-xs text-[#94a3b8] hover:text-white transition-colors self-start"
+          >
+            <IoArrowBack /> Back
+          </button>
+
+          <div className="flex justify-center">
+            <div className="relative">
+              <Avatar src={gPhoto} name={gName} size={88} />
+              <label
+                title="Change group photo"
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-white border-2 border-[#2a2a3e] cursor-pointer"
+              >
+                <IoCameraOutline className="text-base" />
+                <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden onChange={onGroupPhoto} />
+              </label>
+            </div>
+          </div>
+          {photoUploading && <p className="text-center text-xs text-indigo-300">Uploading photo…</p>}
+
+          <div>
+            <label className="text-xs text-[#94a3b8]">Group name</label>
+            <input
+              value={gName}
+              onChange={(e) => setGName(e.target.value)}
+              maxLength={50}
+              className="mt-1 w-full bg-[#1e1e2e] rounded-xl px-4 py-2.5 text-sm text-white outline-none border border-[#3f3f5a] focus:border-indigo-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#94a3b8]">Description</label>
+            <textarea
+              value={gDesc}
+              onChange={(e) => setGDesc(e.target.value.slice(0, 200))}
+              rows={2}
+              placeholder="What's this group about?"
+              className="mt-1 w-full bg-[#1e1e2e] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#94a3b8] outline-none border border-[#3f3f5a] focus:border-indigo-500 transition-colors resize-none"
+            />
+          </div>
+          <button
+            onClick={saveGroupInfo}
+            disabled={busy || photoUploading || !gName.trim()}
+            className="w-full py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      ) : addMode ? (
         <div className="flex flex-col gap-3">
           <button
             onClick={exitAddMode}
@@ -245,7 +340,31 @@ export function GroupInfoModal({ open, onClose, conversation, currentUid, onLeft
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-xs text-[#94a3b8]">{conversation.members.length} members</p>
+          {/* Group header */}
+          <div className="flex flex-col items-center text-center gap-2">
+            {conversation.photoURL ? (
+              <Avatar src={conversation.photoURL} name={conversation.name} size={72} />
+            ) : (
+              <div className="w-[72px] h-[72px] rounded-full bg-indigo-500/30 flex items-center justify-center">
+                <IoPeopleOutline className="text-indigo-300 text-3xl" />
+              </div>
+            )}
+            <div>
+              <p className="text-base font-semibold text-white">{conversation.name}</p>
+              <p className="text-xs text-[#94a3b8]">{conversation.members.length} members</p>
+            </div>
+            {conversation.description && (
+              <p className="text-xs text-[#cbd5e1] max-w-xs">{conversation.description}</p>
+            )}
+            {isAdmin && (
+              <button
+                onClick={openEdit}
+                className="flex items-center gap-1.5 text-xs text-indigo-300 hover:text-indigo-200 transition-colors mt-1"
+              >
+                <IoPencilOutline /> Edit group info
+              </button>
+            )}
+          </div>
 
           {!hasAdmin && (
             <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">

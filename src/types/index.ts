@@ -52,6 +52,8 @@ export interface Conversation {
   id: string
   type: 'direct' | 'group'
   name?: string
+  photoURL?: string
+  description?: string
   members: string[]
   /** Group admin — the user who created the group. Has full control. */
   createdBy?: string

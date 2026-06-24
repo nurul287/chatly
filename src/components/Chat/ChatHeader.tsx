@@ -41,9 +41,13 @@ export function ChatHeader({ conversation, currentUid, onMenuOpen, onConversatio
         }`}
       >
         {isGroup ? (
-          <div className="w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
-            <IoPeopleOutline className="text-indigo-300" />
-          </div>
+          conversation.photoURL ? (
+            <Avatar src={conversation.photoURL} name={name} size={36} />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
+              <IoPeopleOutline className="text-indigo-300" />
+            </div>
+          )
         ) : (
           <Avatar src={other?.photoURL} name={name} size={36} online={online} />
         )}

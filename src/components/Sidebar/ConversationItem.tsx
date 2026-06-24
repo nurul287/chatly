@@ -70,9 +70,13 @@ export function ConversationItem({ convo, currentUid, active, onClick, onDelete 
       onClick={onClick}
     >
       {convo.type === 'group' ? (
-        <div className="w-10 h-10 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
-          <IoPeopleOutline className="text-indigo-300 text-lg" />
-        </div>
+        convo.photoURL ? (
+          <Avatar src={convo.photoURL} name={name} size={40} />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-indigo-500/30 flex items-center justify-center flex-shrink-0">
+            <IoPeopleOutline className="text-indigo-300 text-lg" />
+          </div>
+        )
       ) : (
         <Avatar src={photo} name={name} size={40} online={online} />
       )}
